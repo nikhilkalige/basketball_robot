@@ -43,7 +43,7 @@ class Arm:
         self._goal = FollowJointTrajectoryGoal()
 
     def logmsg(self, msg=""):
-        rospy.loginfo("{}:- {}", self.name, msg)
+        rospy.loginfo("{}:- {}".format(self.name, msg))
 
     def control_torque(self, enable=True):
         goal = ControlTorqueGoal()
