@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- Controller config file -->
+  <arg name="config_file" default="$(find manipulator_gazebo)/config/arm_control.yaml" />
+
+  <!-- convert joint states to TF transforms for rviz, etc -->
+  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
+    <param name="publish_frequency" type="double" value="50.0" />
+    <param name="tf_prefix" type="string" value="" />
+  </node>
+
+  <!-- Fake Calibration -->
+  <node pkg="rostopic" type="rostopic" name="fake_joint_calibration"
+        args="pub /calibrated std_msgs/Bool true" />
+
+  <!-- Load joint controller configurations from YAML file to parameter server -->
+  <rosparam file="$(find bbbot_gazebo)/config/common_control.yaml" command="load" />
+
+  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
+    <!-- listens to each part -->
+    <rosparam param="source_list">[/leftarm/joint_states, /rightarm/joint_states]</rosparam>
+</node>
+
+
+
+  <!-- Left arm controllers -->
+  <group ns="leftarm">
+     <param name="robot_description"
+    command="$(find xacro)/xacro.py '$(find bbbot_description)/urdf/bbbot.xacro'" />
+    <rosparam file="$(find bbbot_gazebo)/config/leftarm_control.yaml" command="load" />
+    <rosparam file="$(find bbbot_gazebo)/config/common_control.yaml" command="load" />
+
+    <node name="joint_state_controller_spawner" pkg="controller_manager" type="controller_manager"
+    args="spawn joint_state_controller" respawn="false" output="screen" />
+
+    <node name="arm_controller_spawner" pkg="controller_manager" type="controller_manager"
+      args="spawn arm_controller" respawn="false" output="screen" />
+  </group>
+
+  <!-- Right arm controllers -->
+  <group ns="rightarm">
+     <param name="robot_description"
+    command="$(find xacro)/xacro.py '$(find bbbot_description)/urdf/bbbot.xacro'" />
+    <rosparam file="$(find bbbot_gazebo)/config/leftarm_control.yaml" command="load" />
+    <rosparam file="$(find bbbot_gazebo)/config/common_control.yaml" command="load" />
+
+    <node name="joint_state_controller_spawner" pkg="controller_manager" type="controller_manager"
+    args="spawn joint_state_controller" respawn="false" output="screen" />
+
+    <node name="arm_controller_spawner" pkg="controller_manager" type="controller_manager"
+      args="spawn arm_controller" respawn="false" output="screen" />
+  </group>
+
+</launch>

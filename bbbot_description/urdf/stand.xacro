@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="stand" params="prefix parent *origin">
+
+    <joint name="${parent}_${prefix}_base_joint" type="fixed">
+      <xacro:insert_block name="origin" />
+      <parent link="${parent}" />
+      <child link="${prefix}stand_link" />
+    </joint>
+
+    <link name="${prefix}stand_link">
+      <visual>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <mesh filename="package://bbbot_description/meshes/visual/stand.stl" />
+        </geometry>
+      </visual>
+      <collision>
+        <origin xyz="-0.3 -0.3 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="package://bbbot_description/meshes/collision/stand.stl" />
+        </geometry>
+      </collision>
+      <inertial>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <mass value="1000"/>
+        <inertia
+          ixx="100.0" ixy="0.0" ixz="0.0"
+          iyy="100.0" iyz="0.0"
+          izz="100.0"/>
+      </inertial>
+    </link>
+  </xacro:macro>
+</robot>
