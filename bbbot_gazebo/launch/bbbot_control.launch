@@ -17,39 +17,47 @@
   <!-- Load joint controller configurations from YAML file to parameter server -->
   <rosparam file="$(find bbbot_gazebo)/config/common_control.yaml" command="load" />
 
-  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
-    <!-- listens to each part -->
+  <!-- <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
+    listens to each part
     <rosparam param="source_list">[/leftarm/joint_states, /rightarm/joint_states]</rosparam>
-</node>
+  </node> -->
+
+  <node name="joint_state_controller_spawner" pkg="controller_manager" type="controller_manager"
+    args="spawn joint_state_controller" respawn="false" output="screen" />
+
+  <rosparam file="$(find bbbot_gazebo)/config/leftarm_control.yaml" command="load" />
+  <node name="larm_controller_spawner" pkg="controller_manager" type="controller_manager"
+    args="spawn leftarm_controller" respawn="false" output="screen" />
+
+  <rosparam file="$(find bbbot_gazebo)/config/rightarm_control.yaml" command="load" />
+  <node name="rarm_controller_spawner" pkg="controller_manager" type="controller_manager"
+    args="spawn rightarm_controller" respawn="false" output="screen" />
 
 
 
   <!-- Left arm controllers -->
-  <group ns="leftarm">
-     <param name="robot_description"
+<!--   <group ns="leftarm">
+  <param name="robot_description"
     command="$(find xacro)/xacro.py '$(find bbbot_description)/urdf/bbbot.xacro'" />
-    <rosparam file="$(find bbbot_gazebo)/config/leftarm_control.yaml" command="load" />
-    <rosparam file="$(find bbbot_gazebo)/config/common_control.yaml" command="load" />
 
-    <node name="joint_state_controller_spawner" pkg="controller_manager" type="controller_manager"
-    args="spawn joint_state_controller" respawn="false" output="screen" />
+  <rosparam file="$(find bbbot_gazebo)/config/common_control.yaml" command="load" />
 
-    <node name="arm_controller_spawner" pkg="controller_manager" type="controller_manager"
-      args="spawn arm_controller" respawn="false" output="screen" />
-  </group>
 
-  <!-- Right arm controllers -->
-  <group ns="rightarm">
-     <param name="robot_description"
+  <rosparam file="$(find bbbot_gazebo)/config/leftarm_control.yaml" command="load" />
+  <node name="arm_controller_spawner" pkg="controller_manager" type="controller_manager"
+    args="spawn arm_controller" respawn="false" output="screen" />
+</group>
+
+Right arm controllers
+<group ns="rightarm">
+  <param name="robot_description"
     command="$(find xacro)/xacro.py '$(find bbbot_description)/urdf/bbbot.xacro'" />
-    <rosparam file="$(find bbbot_gazebo)/config/leftarm_control.yaml" command="load" />
-    <rosparam file="$(find bbbot_gazebo)/config/common_control.yaml" command="load" />
 
-    <node name="joint_state_controller_spawner" pkg="controller_manager" type="controller_manager"
-    args="spawn joint_state_controller" respawn="false" output="screen" />
+  <rosparam file="$(find bbbot_gazebo)/config/leftarm_control.yaml" command="load" />
+  <rosparam file="$(find bbbot_gazebo)/config/common_control.yaml" command="load" />
 
-    <node name="arm_controller_spawner" pkg="controller_manager" type="controller_manager"
-      args="spawn arm_controller" respawn="false" output="screen" />
-  </group>
-
+  <node name="arm_controller_spawner" pkg="controller_manager" type="controller_manager"
+    args="spawn arm_controller" respawn="false" output="screen" />
+</group>
+ -->
 </launch>
