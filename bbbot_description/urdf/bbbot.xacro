@@ -15,7 +15,8 @@
   </xacro:stand>
 
   <xacro:include filename="$(find manipulator_description)/urdf/common.xacro" />
-  <xacro:manipulator_arm_gazebo prefix="" />
+  <xacro:manipulator_arm_gazebo prefix="leftarm" />
+  <xacro:manipulator_arm_gazebo prefix="rightarm" />
 
   <!-- One of the values should be 226 mm -->
   <!-- Left arm -->
