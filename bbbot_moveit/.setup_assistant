@@ -1,0 +1,8 @@
+moveit_setup_assistant_config:
+  URDF:
+    package: bbbot_description
+    relative_path: urdf/bbbot.xacro
+  SRDF:
+    relative_path: config/bbbot.srdf
+  CONFIG:
+    generated_timestamp: 1462260917
