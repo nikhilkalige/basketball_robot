@@ -1,0 +1,4 @@
+# The trajectory that should be followed, should contain both arms
+trajectory_msgs/JointTrajectory trajectory
+---
+bool collision_found

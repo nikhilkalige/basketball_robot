@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<package>
+  <name>bbbot_collision</name>
+  <version>0.0.1</version>
+  <description>BBBot Collision checking</description>
+
+  <maintainer email="isucan@willowgarage.com">Ioan Sucan</maintainer>
+  <license>BSD</license>
+  <author email="sachinc@willowgarage.com">Sachin Chitta</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>moveit_core</build_depend>
+  <build_depend>moveit_ros_planning_interface</build_depend>
+  <build_depend>cmake_modules</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>trajectory_msgs</build_depend>
+  <build_depend>message_generation</build_depend>
+
+  <run_depend>moveit_core</run_depend>
+  <run_depend>moveit_fake_controller_manager</run_depend>
+  <run_depend>moveit_ros_planning_interface</run_depend>
+  <run_depend>std_msgs</run_depend>
+  <run_depend>trajectory_msgs</run_depend>
+  <run_depend>message_runtime</run_depend>
+
+</package>
