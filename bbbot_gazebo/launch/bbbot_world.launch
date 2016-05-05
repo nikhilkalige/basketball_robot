@@ -22,6 +22,10 @@
   <param name="robot_description"
 	  command="$(find xacro)/xacro.py '$(find bbbot_description)/urdf/bbbot.xacro'" />
 
+  <!-- Load the joint names to enable filtering of the transmissions -->
+  <rosparam command="load" file="$(find bbbot_gazebo)/config/leftarm_joint_names.yaml" ns="leftarm" />
+  <rosparam command="load" file="$(find bbbot_gazebo)/config/rightarm_joint_names.yaml" ns="rightarm" />
+
   <!-- Run a python script to the send a service call to gazebo_ros to spawn a URDF robot -->
   <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
 	  args="-urdf -model bbbot -param robot_description"/>

@@ -1,0 +1,8 @@
+# Joint names for the gazebo control plugin
+joint_names:
+   - leftarm_shoulder_pan_joint
+   - leftarm_shoulder_lift_joint
+   - leftarm_elbow_joint
+   - leftarm_wrist_1_joint
+   - leftarm_wrist_2_joint
+   - leftarm_wrist_3_joint
