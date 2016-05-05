@@ -12,16 +12,19 @@ class Arm:
     JOINT_NAMES = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint',
                    'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
 
-    def __init__(self, name="", namespace=""):
+    def __init__(self, name="", namespace="", use_prefix=False, sim=False):
         self.name = name
         self.ns = namespace
+
+        if use_prefix:
+            self.JOINT_NAMES = ['{}_{}'.format(self.ns, name) for name in self.JOINT_NAMES]
 
         self.trajectory_active = False
 
         self.torque_client = actionlib.SimpleActionClient(
             "{}/control_torque".format(self.ns), ControlTorqueAction)
         self.traj_client = actionlib.SimpleActionClient(
-            "{}/pos_based_pos_traj_controller/follow_joint_trajectory".format(self.ns),
+            "{}/joint_trajectory_controller/follow_joint_trajectory".format(self.ns),
             FollowJointTrajectoryAction)
 
         rospy.on_shutdown(self.cleanup)
@@ -29,10 +32,11 @@ class Arm:
         self.logmsg("Connecting to the clients")
         log_str = "Timed out connecting to {} server"
 
-        if not self.torque_client.wait_for_server(timeout=rospy.Duration(10)):
-            rospy.logerr(log_str.format("Control Torque"))
-            rospy.signal_shutdown("Unable to connect to server")
-            sys.exit(1)
+        if not sim:
+            if not self.torque_client.wait_for_server(timeout=rospy.Duration(10)):
+                rospy.logerr(log_str.format("Control Torque"))
+                rospy.signal_shutdown("Unable to connect to server")
+                sys.exit(1)
 
         if not self.traj_client.wait_for_server(timeout=rospy.Duration(10)):
             rospy.logerr(log_str.format("Joint Trajectory"))
@@ -122,3 +126,8 @@ class Arm:
         if status == GoalStatus.ACTIVE:
             self.logmsg("Cancelling all goals")
             self.traj_client.cancel_all_goals()
+
+    def echo_trajectory(self):
+        self.logmsg("No of points: {}".format(len(self._goal.trajectory.points)))
+        for pt in self._goal.trajectory.points:
+            print ["{:.7f}".format(i) for i in pt.positions], '\t', 'Time: ', pt.time_from_start
