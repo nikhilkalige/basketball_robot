@@ -45,7 +45,7 @@ private:
         bool valid_path;
         valid_path = scene->isPathValid(*rtraj_ptr, "arm", true);
         ROS_INFO("Generated path is %s", valid_path ? "valid" : "invalid");
-        resp.collision_found = valid_path;
+        resp.collision_found = !valid_path;
         return true;
     }
 };
