@@ -6,6 +6,8 @@
   <xacro:include filename="$(find manipulator_description)/urdf/manipulator_h.xacro" />
   <!-- stand -->
   <xacro:include filename="$(find bbbot_description)/urdf/stand.xacro" />
+  <!-- fingers -->
+  <xacro:include filename="$(find bbbot_description)/urdf/fingers.xacro" />
 
   <!-- Used for fixing robot to Gazebo 'base_link' -->
   <link name="world"/>
@@ -24,9 +26,17 @@
     <origin xyz="0.045 0.1665 1.526" rpy="${-pi/2} ${pi/2} 0" />
   </xacro:manipulator_h_arm>
 
-  <!-- Rsight arm -->
+  <xacro:fingers prefix="leftarm" parent="leftarm_ee_link">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </xacro:fingers>
+
+  <!-- Right arm -->
   <xacro:manipulator_h_arm prefix="rightarm" joint_limited="false" parent="world">
     <origin xyz="0.045 -0.1665 1.526" rpy="${pi/2} ${pi/2} 0" />
   </xacro:manipulator_h_arm>
+
+  <xacro:fingers prefix="rightarm" parent="rightarm_ee_link">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </xacro:fingers>
 
 </robot>
