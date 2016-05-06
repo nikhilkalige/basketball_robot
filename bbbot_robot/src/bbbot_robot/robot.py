@@ -24,9 +24,9 @@ class Robot:
         self.collsion_service = False
 
     def control_torque(self, enable=True):
-        if not self.left.control_torque():
+        if not self.left.control_torque(enable):
             return False
-        if not self.right.control_torque():
+        if not self.right.control_torque(enable):
             return False
         return True
 
@@ -55,6 +55,10 @@ class Robot:
     def generate_points(self, current_angles, index, end_point, increment):
         start_point = current_angles[index]
         points = []
+        increment = abs(increment)
+
+        if start_point > end_point:
+            increment = increment * -1
 
         for pt in np.arange(start_point, end_point, increment):
             current_angles[index] = pt
