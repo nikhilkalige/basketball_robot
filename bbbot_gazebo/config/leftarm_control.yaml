@@ -1,4 +1,51 @@
-arm_controller:
+serial_port:
+  # Should be overridden in the launch file
+  name: "/dev/leftarm"
+  baudrate: 1000000
+
+arm_config:
+  count: 6
+  devices:
+    - id: 1
+      model: "H54-200-S500-R"
+      protocol: 2.0
+      joint_name: "leftarm_shoulder_pan_joint"
+    - id: 2
+      model: "H54-200-S500-R"
+      protocol: 2.0
+      joint_name: "leftarm_shoulder_lift_joint"
+    - id: 3
+      model: "H54-100-S500-R"
+      protocol: 2.0
+      joint_name: "leftarm_elbow_joint"
+    - id: 4
+      model: "H54-100-S500-R"
+      protocol: 2.0
+      joint_name: "leftarm_wrist_1_joint"
+    - id: 5
+      model: "H42-20-S300-R"
+      protocol: 2.0
+      joint_name: "leftarm_wrist_2_joint"
+    - id: 6
+      model: "H42-20-S300-R"
+      protocol: 2.0
+      joint_name: "leftarm_wrist_3_joint"
+
+# Settings for ros_control control loop
+hardware_control_loop:
+   loop_hz: 125
+
+# Settings for ros_control hardware interface
+hardware_interface:
+   joints:
+     - leftarm_shoulder_pan_joint
+     - leftarm_shoulder_lift_joint
+     - leftarm_elbow_joint
+     - leftarm_wrist_1_joint
+     - leftarm_wrist_2_joint
+     - leftarm_wrist_3_joint
+
+joint_trajectory_controller:
   type: position_controllers/JointTrajectoryController
   joints:
      - leftarm_shoulder_pan_joint
@@ -7,15 +54,15 @@ arm_controller:
      - leftarm_wrist_1_joint
      - leftarm_wrist_2_joint
      - leftarm_wrist_3_joint
-  constraints:
-      goal_time: 0.6
-      stopped_velocity_tolerance: 0.05
-      shoulder_pan_joint: {trajectory: 0.1, goal: 0.1}
-      shoulder_lift_joint: {trajectory: 0.1, goal: 0.1}
-      elbow_joint: {trajectory: 0.1, goal: 0.1}
-      wrist_1_joint: {trajectory: 0.1, goal: 0.1}
-      wrist_2_joint: {trajectory: 0.1, goal: 0.1}
-      wrist_3_joint: {trajectory: 0.1, goal: 0.1}
-  stop_trajectory_duration: 0.5
-  state_publish_rate:  25
-  action_monitor_rate: 10
+  # constraints:
+  #     goal_time: 0.6
+  #     stopped_velocity_tolerance: 0.05
+  #     shoulder_pan_joint: {trajectory: 0.1, goal: 0.1}
+  #     shoulder_lift_joint: {trajectory: 0.1, goal: 0.1}
+  #     elbow_joint: {trajectory: 0.1, goal: 0.1}
+  #     wrist_1_joint: {trajectory: 0.1, goal: 0.1}
+  #     wrist_2_joint: {trajectory: 0.1, goal: 0.1}
+  #     wrist_3_joint: {trajectory: 0.1, goal: 0.1}
+  # stop_trajectory_duration: 0.5
+  # state_publish_rate:  25
+  # action_monitor_rate: 10
