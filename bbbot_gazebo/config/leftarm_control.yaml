@@ -45,7 +45,7 @@ hardware_interface:
      - leftarm_wrist_2_joint
      - leftarm_wrist_3_joint
 
-joint_trajectory_controller:
+position_joint_trajectory_controller:
   type: position_controllers/JointTrajectoryController
   joints:
      - leftarm_shoulder_pan_joint
@@ -66,3 +66,21 @@ joint_trajectory_controller:
   # stop_trajectory_duration: 0.5
   # state_publish_rate:  25
   # action_monitor_rate: 10
+
+velocity_joint_trajectory_controller:
+  type: velocity_controllers/JointTrajectoryController
+  joints:
+     - leftarm_shoulder_pan_joint
+     - leftarm_shoulder_lift_joint
+     - leftarm_elbow_joint
+     - leftarm_wrist_1_joint
+     - leftarm_wrist_2_joint
+     - leftarm_wrist_3_joint
+  gains:
+    #!!These values are useable, but maybe not optimal
+    leftarm_shoulder_pan_joint: {p: 1.2,  i: 0.0, d: 0.1, i_clamp: 1}
+    leftarm_shoulder_lift_joint: {p: 1.2,  i: 0.0, d: 0.1, i_clamp: 1}
+    leftarm_elbow_joint: {p: 1.2,  i: 0.0, d: 0.1, i_clamp: 1}
+    leftarm_wrist_1_joint: {p: 1.2,  i: 0.0, d: 0.1, i_clamp: 1}
+    leftarm_wrist_2_joint: {p: 1.2,  i: 0.0, d: 0.1, i_clamp: 1}
+    leftarm_wrist_3_joint: {p: 1.2,  i: 0.0, d: 0.1, i_clamp: 1}
