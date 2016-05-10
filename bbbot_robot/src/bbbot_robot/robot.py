@@ -17,9 +17,9 @@ class JointNames(IntEnum):
 
 
 class Robot:
-    def __init__(self, use_prefix=False, sim=False, single_arm=False):
-        self.left = Arm('LeftArm', 'leftarm', use_prefix=use_prefix, sim=sim)
-        self.right = Arm('RightArm', 'rightarm', use_prefix=use_prefix, sim=sim)
+    def __init__(self, use_prefix=False, sim=False, single_arm=False, pos_controller=True):
+        self.left = Arm('LeftArm', 'leftarm', use_prefix=use_prefix, sim=sim, pos_controller=pos_controller)
+        self.right = Arm('RightArm', 'rightarm', use_prefix=use_prefix, sim=sim, pos_controller=pos_controller)
         self.sim = sim
         self.collsion_service = False
         self.single_arm = single_arm

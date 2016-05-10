@@ -12,7 +12,7 @@ class Arm:
     JOINT_NAMES = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint',
                    'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
 
-    def __init__(self, name="", namespace="", use_prefix=False, sim=False):
+    def __init__(self, name="", namespace="", use_prefix=False, sim=False, pos_controller=True):
         self.name = name
         self.ns = namespace
 
@@ -23,8 +23,13 @@ class Arm:
 
         self.torque_client = actionlib.SimpleActionClient(
             "{}/control_torque".format(self.ns), ControlTorqueAction)
+        if pos_controller:
+            controller_name = 'position_joint_trajectory_controller'
+        else:
+            controller_name = 'velocity_joint_trajectory_controller'
+
         self.traj_client = actionlib.SimpleActionClient(
-            "{}/joint_trajectory_controller/follow_joint_trajectory".format(self.ns),
+            "{}/{}/follow_joint_trajectory".format(self.ns, controller_name),
             FollowJointTrajectoryAction)
 
         rospy.on_shutdown(self.cleanup)
