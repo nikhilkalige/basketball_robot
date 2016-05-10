@@ -17,11 +17,12 @@ class JointNames(IntEnum):
 
 
 class Robot:
-    def __init__(self, use_prefix=False, sim=False):
+    def __init__(self, use_prefix=False, sim=False, single_arm=False):
         self.left = Arm('LeftArm', 'leftarm', use_prefix=use_prefix, sim=sim)
         self.right = Arm('RightArm', 'rightarm', use_prefix=use_prefix, sim=sim)
         self.sim = sim
         self.collsion_service = False
+        self.single_arm = single_arm
 
     def control_torque(self, enable=True):
         if not self.left.control_torque(enable):
@@ -69,7 +70,8 @@ class Robot:
     def start_trajectory(self, delay=3):
         start_time = rospy.Time.now() + rospy.Duration(delay)
         self.left.send_trajectory(start_time)
-        self.right.send_trajectory(start_time)
+        if not self.single_arm:
+            self.right.send_trajectory(start_time)
 
     def wait_completion(self):
         rate = rospy.Rate(10)
