@@ -54,9 +54,9 @@ position_joint_trajectory_controller:
      - leftarm_wrist_1_joint
      - leftarm_wrist_2_joint
      - leftarm_wrist_3_joint
-  # constraints:
+  constraints:
+    stopped_velocity_tolerance: 30
   #     goal_time: 0.6
-  #     stopped_velocity_tolerance: 0.05
   #     shoulder_pan_joint: {trajectory: 0.1, goal: 0.1}
   #     shoulder_lift_joint: {trajectory: 0.1, goal: 0.1}
   #     elbow_joint: {trajectory: 0.1, goal: 0.1}
