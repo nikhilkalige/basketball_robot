@@ -61,10 +61,12 @@ class Robot:
         points = []
         increment = abs(increment)
 
-        if start_point > end_point:
-            increment = increment * -1
+        no_of_points = float(np.abs(start_point - end_point)) / np.abs(increment)
+        no_of_points = np.ceil(no_of_points)
+        if no_of_points == 1:
+            no_of_points = 2
 
-        for pt in np.arange(start_point, end_point, increment):
+        for pt in np.linspace(start_point, end_point, no_of_points):
             current_angles[index] = pt
             points.append(current_angles[:])
 
