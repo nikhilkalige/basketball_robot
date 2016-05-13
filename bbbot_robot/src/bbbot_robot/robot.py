@@ -16,6 +16,11 @@ class JointNames(IntEnum):
     WRIST_3 = 5
 
 
+def find_nearest(array, value):
+    idx = (np.abs(array - value)).argmin()
+    return idx
+
+
 class Robot:
     def __init__(self, use_prefix=False, sim=False, single_arm=False, pos_controller=True):
         self.sim = sim
@@ -71,6 +76,54 @@ class Robot:
             points.append(current_angles[:])
 
         return points
+
+    def modify_trajectory(self, arm_str, points):
+        """ The points should be of the format
+            [
+                {arm_index: start_degree, ......},
+                {arm_index: end_degree, ......}
+            ]
+        """
+        arm = getattr(self, arm_str)
+        # Find the start and end point of shoulder pan joint
+        main_start_pt = points[0][JointNames.SHOULDER_PAN]
+        main_end_pt = points[-1][JointNames.SHOULDER_PAN]
+
+        # Points for SHOULDER_PAN
+        pan_positions = []
+        for pt in arm._goal.trajectory.points:
+            pan_positions.append(pt.positions[JointNames.SHOULDER_PAN])
+
+        # Find the closest index
+        main_start_idx = find_nearest(pan_positions, np.deg2rad(main_start_pt))
+        main_end_idx = find_nearest(pan_positions, np.deg2rad(main_end_pt))
+
+        no_of_points = (main_end_idx - main_start_idx) + 1
+        # Remove the PAN joint
+        for pt in points:
+            pt.pop(JointNames.SHOULDER_PAN)
+
+        for key in points[0]:
+            start_pt = np.deg2rad(points[0][key])
+            end_pt = np.deg2rad(points[-1][key])
+
+            pos_idx = main_start_idx
+            for pt in np.linspace(start_pt, end_pt, no_of_points):
+                arm._goal.trajectory.points[pos_idx].positions[key] = pt
+                pos_idx = pos_idx + 1
+
+            # Set the last n values to the last value
+            last_value = arm._goal.trajectory.points[pos_idx - 1].positions[key]
+            for pos in arm._goal.trajectory.points[pos_idx:]:
+                pos.positions[key] = last_value
+
+        for pt in arm._goal.trajectory.points:
+            print ["{:.7f}".format(i) for i in pt.positions]
+
+        if not self.sim:
+            validate = raw_input("Validate generated angle values: \n")
+            if 'n' in validate.lower():
+                sys.exit(1)
 
     def start_trajectory(self, delay=3):
         start_time = rospy.Time.now() + rospy.Duration(delay)
