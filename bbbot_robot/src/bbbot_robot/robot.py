@@ -98,7 +98,7 @@ class Robot:
         main_start_idx = find_nearest(pan_positions, np.deg2rad(main_start_pt))
         main_end_idx = find_nearest(pan_positions, np.deg2rad(main_end_pt))
 
-        no_of_points = (main_end_idx - main_start_idx) + 1
+        # no_of_points = (main_end_idx - main_start_idx) + 1
         # Remove the PAN joint
         for pt in points:
             pt.pop(JointNames.SHOULDER_PAN)
@@ -107,13 +107,22 @@ class Robot:
             start_pt = np.deg2rad(points[0][key])
             end_pt = np.deg2rad(points[-1][key])
 
-            pos_idx = main_start_idx
-            for pt in np.linspace(start_pt, end_pt, no_of_points):
+            no_of_points = float(np.abs(start_pt - end_pt)) / np.abs(increment)
+            no_of_points = np.ceil(no_of_points)
+            if no_of_points == 1:
+                no_of_points = 2
+
+            # pos_idx = main_start_idx
+            pos_idx = main_end_idx
+            for pt in np.linspace(end_pt, start_pt, no_of_points):
                 arm._goal.trajectory.points[pos_idx].positions[key] = pt
-                pos_idx = pos_idx + 1
+                pos_idx = pos_idx - 1
+                if pos_idx == -1:
+                    break
 
             # Set the last n values to the last value
-            last_value = arm._goal.trajectory.points[pos_idx - 1].positions[key]
+            pos_idx = main_end_idx
+            last_value = arm._goal.trajectory.points[pos_idx].positions[key]
             for pos in arm._goal.trajectory.points[pos_idx:]:
                 pos.positions[key] = last_value
 
