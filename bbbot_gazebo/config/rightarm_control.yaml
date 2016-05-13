@@ -55,7 +55,7 @@ position_joint_trajectory_controller:
      - rightarm_wrist_2_joint
      - rightarm_wrist_3_joint
   constraints:
-    stopped_velocity_tolerance: 30
+    stopped_velocity_tolerance: 35
   # constraints:
   #     goal_time: 0.6
   #     stopped_velocity_tolerance: 0.05
