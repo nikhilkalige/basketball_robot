@@ -18,17 +18,20 @@ class JointNames(IntEnum):
 
 class Robot:
     def __init__(self, use_prefix=False, sim=False, single_arm=False, pos_controller=True):
-        self.left = Arm('LeftArm', 'leftarm', use_prefix=use_prefix, sim=sim, pos_controller=pos_controller)
-        self.right = Arm('RightArm', 'rightarm', use_prefix=use_prefix, sim=sim, pos_controller=pos_controller)
         self.sim = sim
         self.collsion_service = False
         self.single_arm = single_arm
 
+        self.left = Arm('LeftArm', 'leftarm', use_prefix=use_prefix, sim=sim, pos_controller=pos_controller)
+        if not self.single_arm:
+            self.right = Arm('RightArm', 'rightarm', use_prefix=use_prefix, sim=sim, pos_controller=pos_controller)
+
     def control_torque(self, enable=True):
         if not self.left.control_torque(enable):
             return False
-        if not self.right.control_torque(enable):
-            return False
+        if not self.single_arm:
+            if not self.right.control_torque(enable):
+                return False
         return True
 
     def create_trajectory(self, arm_str, index, end_point, increment, time=1):
@@ -76,8 +79,11 @@ class Robot:
     def wait_completion(self):
         rate = rospy.Rate(10)
         while not rospy.is_shutdown():
-            if not self.left.trajectory_active and not self.right.trajectory_active:
-                return
+            if not self.left.trajectory_active:
+                if self.single_arm:
+                    return
+                if not self.single_arm and not self.right.trajectory_active:
+                    return
             rate.sleep()
 
     def check_collision(self):
