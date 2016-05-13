@@ -77,7 +77,7 @@ class Robot:
 
         return points
 
-    def modify_trajectory(self, arm_str, points):
+    def modify_trajectory(self, arm_str, reference_joint, points, increment=0.06):
         """ The points should be of the format
             [
                 {arm_index: start_degree, ......},
@@ -85,14 +85,14 @@ class Robot:
             ]
         """
         arm = getattr(self, arm_str)
-        # Find the start and end point of shoulder pan joint
-        main_start_pt = points[0][JointNames.SHOULDER_PAN]
-        main_end_pt = points[-1][JointNames.SHOULDER_PAN]
+        # Find the start and end point of reference_joint
+        main_start_pt = points[0][reference_joint]
+        main_end_pt = points[-1][reference_joint]
 
-        # Points for SHOULDER_PAN
+        # Positions for the reference_joint
         pan_positions = []
         for pt in arm._goal.trajectory.points:
-            pan_positions.append(pt.positions[JointNames.SHOULDER_PAN])
+            pan_positions.append(pt.positions[reference_joint])
 
         # Find the closest index
         main_start_idx = find_nearest(pan_positions, np.deg2rad(main_start_pt))
@@ -101,7 +101,7 @@ class Robot:
         # no_of_points = (main_end_idx - main_start_idx) + 1
         # Remove the PAN joint
         for pt in points:
-            pt.pop(JointNames.SHOULDER_PAN)
+            pt.pop(reference_joint)
 
         for key in points[0]:
             start_pt = np.deg2rad(points[0][key])
