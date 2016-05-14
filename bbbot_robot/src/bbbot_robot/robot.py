@@ -83,10 +83,16 @@ class Robot:
                 {arm_index: start_degree, ......},
                 {arm_index: end_degree, ......}
             ]
+
+            If start_degree is not specified for the reference joint, then the joint speed will be maximized,
+            else we will use the distance between the start and end points of the reference joint as an reference to
+            calculate the no of points to be used, therefore the increment can be very large or very small.
         """
         arm = getattr(self, arm_str)
         # Find the start and end point of reference_joint
-        main_start_pt = points[0][reference_joint]
+        main_start_pt = False
+        if points[0].get(reference_joint):
+            main_start_pt = points[0][reference_joint]
         main_end_pt = points[-1][reference_joint]
 
         # Positions for the reference_joint
@@ -95,34 +101,47 @@ class Robot:
             pan_positions.append(pt.positions[reference_joint])
 
         # Find the closest index
-        main_start_idx = find_nearest(pan_positions, np.deg2rad(main_start_pt))
         main_end_idx = find_nearest(pan_positions, np.deg2rad(main_end_pt))
+        if main_start_pt:
+            main_start_idx = find_nearest(pan_positions, np.deg2rad(main_start_pt))
+            no_of_points = (main_end_idx - main_start_idx) + 1
 
-        # no_of_points = (main_end_idx - main_start_idx) + 1
         # Remove the PAN joint
         for pt in points:
-            pt.pop(reference_joint)
+            if reference_joint in pt:
+                pt.pop(reference_joint)
 
         for key in points[0]:
             start_pt = np.deg2rad(points[0][key])
             end_pt = np.deg2rad(points[-1][key])
 
-            no_of_points = float(np.abs(start_pt - end_pt)) / np.abs(increment)
-            no_of_points = np.ceil(no_of_points)
-            if no_of_points == 1:
-                no_of_points = 2
+            if main_start_pt:
+                pos_idx = main_start_idx
+            else:
+                no_of_points = float(np.abs(start_pt - end_pt)) / np.abs(increment)
+                no_of_points = np.ceil(no_of_points)
+                if no_of_points == 1:
+                    no_of_points = 2
+                pos_idx = main_end_idx
+                # reverse the startpt and endpt
+                start_pt, end_pt = end_pt, start_pt
 
-            # pos_idx = main_start_idx
-            pos_idx = main_end_idx
-            for pt in np.linspace(end_pt, start_pt, no_of_points):
+            for pt in np.linspace(start_pt, end_pt, no_of_points):
                 arm._goal.trajectory.points[pos_idx].positions[key] = pt
-                pos_idx = pos_idx - 1
-                if pos_idx == -1:
-                    break
+                if main_start_pt:
+                    pos_idx = pos_idx + 1
+                else:
+                    pos_idx = pos_idx - 1
+                    if pos_idx == -1:
+                        break
 
             # Set the last n values to the last value
-            pos_idx = main_end_idx
-            last_value = arm._goal.trajectory.points[pos_idx].positions[key]
+            if main_start_pt:
+                last_value = arm._goal.trajectory.points[pos_idx - 1].positions[key]
+            else:
+                pos_idx = main_end_idx
+                last_value = arm._goal.trajectory.points[pos_idx].positions[key]
+
             for pos in arm._goal.trajectory.points[pos_idx:]:
                 pos.positions[key] = last_value
 
