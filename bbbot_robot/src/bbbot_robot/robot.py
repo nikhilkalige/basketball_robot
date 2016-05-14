@@ -22,6 +22,12 @@ def find_nearest(array, value):
 
 
 class Robot:
+    FIXED_POSITIONS = ['leftarm_shoulder_pan_joint', 'leftarm_shoulder_lift_joint', 'leftarm_elbow_joint',
+                       'leftarm_wrist_1_joint', 'leftarm_wrist_2_joint', 'leftarm_wrist_3_joint',
+                       'rightarm_shoulder_pan_joint', 'rightarm_shoulder_lift_joint', 'rightarm_elbow_joint',
+                       'rightarm_wrist_1_joint', 'rightarm_wrist_2_joint', 'rightarm_wrist_3_joint'
+                       ]
+
     def __init__(self, use_prefix=False, sim=False, single_arm=False, pos_controller=True):
         self.sim = sim
         self.collsion_service = False
@@ -223,4 +229,30 @@ class Robot:
 
             lower.append(pt)
 
+    def trajectory_from_file(self, file_path, delay=0.1):
+        joint_angles = []
 
+        left_index = [self.FIXED_POSITIONS.index(jn) for jn in self.left.JOINT_NAMES]
+        right_index = []
+        if not self.single_arm:
+            right_index = [self.FIXED_POSITIONS.index(jn) for jn in self.right.JOINT_NAMES]
+        angle_index = left_index + right_index
+
+        with open(file_path, 'r') as f:
+            for line in f.readlines():
+                line = line.strip('position: ').strip('[').strip(']')
+
+                positions = np.fromstring(line, sep=',')
+                # Sanity check
+                if positions.size == 12:
+                    joint_angles.append(positions[angle_index])
+
+        self.left.init_trajectory()
+
+        if not self.single_arm:
+            self.right.init_trajectory()
+
+        for pts in joint_angles:
+            self.left.add_traj_point(pts[:6], delay)
+            if not self.single_arm:
+                self.right.add_traj_point(pts[6:], delay)
