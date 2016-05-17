@@ -5,6 +5,7 @@ import rospy
 import numpy as np
 import sys
 from enum import IntEnum
+import rosbag
 
 
 class JointNames(IntEnum):
@@ -256,3 +257,48 @@ class Robot:
             self.left.add_traj_point(pts[:6], delay)
             if not self.single_arm:
                 self.right.add_traj_point(pts[6:], delay)
+
+    def trajectory_from_bag(self, bag_file_path, start_idx=0, end_idx=None, use_recorded_time=True, delay=0.1, sample_points=0):
+        if use_recorded_time and sample_points:
+            rospy.logerr("Recored time and sample points cannot be used together")
+
+        left_index = [self.FIXED_POSITIONS.index(jn) for jn in self.left.JOINT_NAMES]
+        right_index = []
+        if not self.single_arm:
+            right_index = [self.FIXED_POSITIONS.index(jn) for jn in self.right.JOINT_NAMES]
+        angle_index = left_index + right_index
+
+        self.left.init_trajectory()
+        if not self.single_arm:
+            self.right.init_trajectory()
+
+        count = 0
+        prev_time = 0
+        sample_count = 0
+        with rosbag.Bag(bag_file_path, 'r') as bag:
+            for _, msg, t in bag.read_messages():
+                if count < start_idx:
+                    continue
+                if end_idx and count > end_idx:
+                    break
+
+                pos = np.array(msg.position)[[angle_index]]
+                if use_recorded_time:
+                    if not prev_time:
+                        delay = .1
+                    else:
+                        delay = t.to_sec() - prev_time
+                    prev_time = t.to_sec()
+
+                if sample_points:
+                    if sample_count != 0 and sample_count % sample_points:
+                        sample_count += 1
+                        continue
+                    else:
+                        sample_count += 1
+
+                self.left.add_traj_point(pos[:6], delay)
+                if not self.single_arm:
+                    self.right.add_traj_point(pos[6:], delay)
+
+                count += 1
