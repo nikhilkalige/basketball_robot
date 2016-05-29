@@ -17,7 +17,7 @@ class Arm:
         self.ns = namespace
 
         if use_prefix:
-            self.JOINT_NAMES = ['{}_{}'.format(self.ns, name) for name in self.JOINT_NAMES]
+            self.JOINT_NAMES = ['{}_{}'.format(self.name.lower(), jname) for jname in self.JOINT_NAMES]
 
         self.trajectory_active = False
 
