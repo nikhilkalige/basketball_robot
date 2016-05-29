@@ -167,20 +167,32 @@ class Robot:
             if 'n' in validate.lower():
                 sys.exit(1)
 
-    def start_trajectory(self, delay=3):
+    def start_trajectory(self, delay=3, gazebo=False):
         start_time = rospy.Time.now() + rospy.Duration(delay)
-        self.left.send_trajectory(start_time)
-        if not self.single_arm:
-            self.right.send_trajectory(start_time)
+        if self.gazebo and gazebo:
+            self.gazebo_left.send_trajectory(start_time)
+            if not self.single_arm:
+                self.gazebo_right.send_trajectory(start_time)
+        else:
+            self.left.send_trajectory(start_time)
+            if not self.single_arm:
+                self.right.send_trajectory(start_time)
 
-    def wait_completion(self):
+    def wait_completion(self, gazebo=False):
         rate = rospy.Rate(10)
         while not rospy.is_shutdown():
-            if not self.left.trajectory_active:
-                if self.single_arm:
-                    return
-                if not self.single_arm and not self.right.trajectory_active:
-                    return
+            if self.gazebo and gazebo:
+                if not self.gazebo_left.trajectory_active:
+                    if self.single_arm:
+                        return
+                    if not self.single_arm and not self.gazebo_right.trajectory_active:
+                        return
+            else:
+                if not self.left.trajectory_active:
+                    if self.single_arm:
+                        return
+                    if not self.single_arm and not self.right.trajectory_active:
+                        return
             rate.sleep()
 
     def check_collision(self):
