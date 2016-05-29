@@ -29,14 +29,21 @@ class Robot:
                        'rightarm_wrist_1_joint', 'rightarm_wrist_2_joint', 'rightarm_wrist_3_joint'
                        ]
 
-    def __init__(self, use_prefix=False, sim=False, single_arm=False, pos_controller=True):
+    def __init__(self, use_prefix=False, sim=False, single_arm=False, pos_controller=True, gazebo=False):
         self.sim = sim
         self.collsion_service = False
         self.single_arm = single_arm
+        self.gazebo = gazebo
 
         self.left = Arm('LeftArm', 'leftarm', use_prefix=use_prefix, sim=sim, pos_controller=pos_controller)
+        if self.gazebo:
+            self.gazebo_left = Arm('LeftArm', 'simulator/leftarm', use_prefix=use_prefix, sim=True,
+                                   pos_controller=pos_controller)
         if not self.single_arm:
             self.right = Arm('RightArm', 'rightarm', use_prefix=use_prefix, sim=sim, pos_controller=pos_controller)
+            if self.gazebo:
+                self.gazebo_right = Arm('RightArm', 'simulator/rightarm', use_prefix=use_prefix, sim=True,
+                                        pos_controller=pos_controller)
 
     def control_torque(self, enable=True):
         if not self.left.control_torque(enable):
