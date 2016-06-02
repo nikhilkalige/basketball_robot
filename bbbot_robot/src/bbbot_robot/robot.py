@@ -321,3 +321,68 @@ class Robot:
                     self.right.add_traj_point(pos[6:], delay)
 
                 count += 1
+
+    def trajectory_learning(self, points, delay=0.01):
+        arms = [self.left, self.right, self.gazebo_left, self.gazebo_right]
+        curr_angles = []
+
+        for arm in arms:
+            arm.init_trajectory()
+
+        for arm in arms[:2]:
+            curr_angles.append(arm.get_current_joint_angles())
+
+        # Set the wrist1 and wrist3 joint values
+        points = points.T
+        points[:, JointNames.WRIST_1] = curr_angles[0][JointNames.WRIST_1]
+        # points[:, JointNames.WRIST_3] = curr_angles[0][JointNames.WRIST_3]
+
+        left_points = points.copy()
+        left_points[:, JointNames.WRIST_3] = curr_angles[0][JointNames.WRIST_3]
+
+        right_points = points.copy()
+        right_points[:, JointNames.WRIST_3] = curr_angles[1][JointNames.WRIST_3]
+
+        # Right pan joint is negative
+        right_points[:, JointNames.SHOULDER_PAN] *= -1
+
+        for lpt, rpt in zip(left_points, right_points):
+            self.left.add_traj_point(lpt, delay)
+            self.gazebo_left.add_traj_point(lpt, delay)
+            self.right.add_traj_point(rpt, delay)
+            self.gazebo_right.add_traj_point(rpt, delay)
+
+    def interpolate(self, arm_str, points, delay=0.15, skip_joints=[]):
+        if arm_str == 'left':
+            arms = [self.left]
+            if self.gazebo:
+                arms.append(self.gazebo_left)
+
+        if arm_str == 'right':
+            arms = [self.right]
+            if self.gazebo:
+                arms.append(self.gazebo_right)
+
+        current_angles = arms[0].get_current_joint_angles()
+
+        for arm in arms:
+            arm.init_trajectory()
+
+        diff = np.array(points) - np.array(current_angles)
+        max_idx = np.argmax(np.abs(diff))
+        max_value = abs(diff[max_idx])
+
+        steps = float(max_value) / 0.06
+        joint_pos = []
+        for idx in range(6):
+            joint_pos.append(np.linspace(current_angles[idx], points[idx], steps))
+
+        joint_pos = np.array(joint_pos).T
+
+        if skip_joints:
+            for idx in skip_joints:
+                joint_pos[:, idx] = current_angles[idx]
+
+        for pts in joint_pos:
+            for arm in arms:
+                arm.add_traj_point(pts, delay)
