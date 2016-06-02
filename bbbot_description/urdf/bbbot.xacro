@@ -10,9 +10,9 @@
   <xacro:include filename="$(find bbbot_description)/urdf/fingers.xacro" />
 
   <!-- Used for fixing robot to Gazebo 'base_link' -->
-  <link name="world"/>
+  <link name="base_link"/>
 
-  <xacro:stand prefix="" parent="world">
+  <xacro:stand prefix="" parent="base_link">
     <origin xyz="0 0 0" rpy="0 0 0" />
   </xacro:stand>
 
@@ -22,7 +22,7 @@
 
   <!-- One of the values should be 226 mm -->
   <!-- Left arm -->
-  <xacro:manipulator_h_arm prefix="leftarm" joint_limited="false" parent="world">
+  <xacro:manipulator_h_arm prefix="leftarm" joint_limited="false" parent="base_link">
     <origin xyz="0.045 0.1665 1.526" rpy="${-pi/2} ${-pi/2} 0" />
   </xacro:manipulator_h_arm>
 
@@ -31,7 +31,7 @@
   </xacro:fingers>
 
   <!-- Right arm -->
-  <xacro:manipulator_h_arm prefix="rightarm" joint_limited="false" parent="world">
+  <xacro:manipulator_h_arm prefix="rightarm" joint_limited="false" parent="base_link">
     <origin xyz="0.045 -0.1665 1.526" rpy="${pi/2} ${-pi/2} 0" />
   </xacro:manipulator_h_arm>
 
