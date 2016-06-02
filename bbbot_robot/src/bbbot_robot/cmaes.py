@@ -68,6 +68,8 @@ def run_cmaes(objects, ngen, pkl_location, verbose=False):
         if verbose:
             print logbook.stream
 
+    pickle_data((population, ngen, hof, logbook, cmaes), pkl_location, ngen)
+
 
 def checkpoint_handle(ngen, checkpoint=None):
     if checkpoint:
@@ -87,8 +89,8 @@ def checkpoint_handle(ngen, checkpoint=None):
         start_child = per_child["current_child"]
         fitness = per_child["fitness"]
     else:
-        population = []
         start_gen = 0
+        population = []
         start_child = 0
         hof = tools.HallOfFame(ngen)
         logbook = tools.Logbook()
