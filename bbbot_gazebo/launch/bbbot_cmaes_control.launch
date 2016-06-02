@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- choose whether or not to use simulation -->
+  <arg name="use_sim" default="true"/>
+  <!-- Choose whether velocity or position trajectory controller is used -->
+  <arg name="position_controller" default="true" />
+  <!-- Controller config file -->
+  <arg name="config_file" default="$(find manipulator_gazebo)/config/arm_control.yaml" />
+
+  <!-- convert joint states to TF transforms for rviz, etc -->
+<!--   <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
+  <param name="publish_frequency" type="double" value="50.0" />
+  <param name="tf_prefix" type="string" value="" />
+</node> -->
+
+  <!-- Load joint controller configurations from YAML file to parameter server -->
+
+  <group ns="simulator">
+    <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
+      <rosparam param="source_list">[leftarm/joint_states, rightarm/joint_states]</rosparam>
+    </node>
+  </group>
+
+  <group ns="simulator">
+    <group ns="leftarm">
+      <rosparam file="$(find bbbot_gazebo)/config/common_control.yaml" command="load" />
+      <rosparam file="$(find bbbot_gazebo)/config/leftarm_control.yaml" command="load" />
+
+      <node name="joint_state_controller_spawner" pkg="controller_manager" type="controller_manager"
+        args="spawn joint_state_controller" respawn="false" output="screen" />
+
+      <group if="$(arg position_controller)">
+        <node name="larm_controller_spawner" pkg="controller_manager" type="controller_manager"
+          args="spawn position_joint_trajectory_controller" respawn="false" output="screen" />
+      </group>
+      <group unless="$(arg position_controller)">
+        <node name="larm_controller_spawner" pkg="controller_manager" type="controller_manager"
+          args="spawn velocity_joint_trajectory_controller" respawn="false" output="screen" />
+      </group>
+    </group>
+
+    <group ns="rightarm">
+      <rosparam file="$(find bbbot_gazebo)/config/common_control.yaml" command="load" />
+      <rosparam file="$(find bbbot_gazebo)/config/rightarm_control.yaml" command="load" />
+
+      <node name="joint_state_controller_spawner" pkg="controller_manager" type="controller_manager"
+       args="spawn joint_state_controller" respawn="false" output="screen" />
+
+      <group if="$(arg position_controller)">
+        <node name="rarm_controller_spawner" pkg="controller_manager" type="controller_manager"
+          args="spawn position_joint_trajectory_controller" respawn="false" output="screen" />
+      </group>
+
+      <group unless="$(arg position_controller)">
+        <node name="rarm_controller_spawner" pkg="controller_manager" type="controller_manager"
+          args="spawn velocity_joint_trajectory_controller" respawn="false" output="screen" />
+      </group>
+    </group>
+  </group>
+</launch>
