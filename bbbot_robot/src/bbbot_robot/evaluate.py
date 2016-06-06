@@ -59,10 +59,10 @@ class Evaluate(object):
     WRIST_RESTRICT = [-np.pi, np.pi]
 
     def __init__(self, dmp_count, bag_file):
-        self.robot = Robot(use_prefix=True, gazebo=False)
-        self.track = Tracker()
+        self.robot = Robot(use_prefix=True, display=True)
+        # self.track = Tracker()
         self.init_dmp(dmp_count, bag_file)
-        # self.robot.control_torque()
+        self.robot.control_torque()
 
     def get_initial_params(self):
         weights = []
@@ -198,7 +198,7 @@ class Evaluate(object):
             self.dmps.append(dmp)
 
     def generate_traj_points(self, joint_idx, params):
-        no_points = self.OVERALL_TIME * self.TIMESTEP
+        no_points = int(self.OVERALL_TIME * self.TIMESTEP)
         # Pan joint
         if joint_idx == 0:
             angle = params[2]
@@ -208,28 +208,28 @@ class Evaluate(object):
         if joint_idx == 1:
             angle = [params[3], params[4]]
             start_points = 0
-            dmp_points = self.OVERALL_TIME * self.TIMESTEP
-            initial_points = self.LIFT_POINTS[1] - self.LIFT_POINTS[0]
+            dmp_points = no_points
+            initial_points = int(self.LIFT_POINTS[1] - self.LIFT_POINTS[0])
 
         # Elbow Joint
         if joint_idx == 2:
             angle = [params[5], params[6]]
-            start_points = params[0] * self.TIMESTEP
-            dmp_points = self.OVERALL_TIME * self.TIMESTEP - start_points
-            initial_points = self.ELBOW_POINTS[1] - self.ELBOW_POINTS[0]
+            start_points = int(params[0] * self.TIMESTEP)
+            dmp_points = no_points - start_points
+            initial_points = int(self.ELBOW_POINTS[1] - self.ELBOW_POINTS[0])
 
         # Wrist Joint
         if joint_idx == 3:
             angle = [params[7], params[8]]
-            start_points = params[1] * self.TIMESTEP
-            dmp_points = self.OVERALL_TIME * self.TIMESTEP - start_points
-            initial_points = self.WRIST_POINTS[1] - self.WRIST_POINTS[0]
+            start_points = int(params[1] * self.TIMESTEP)
+            dmp_points = no_points - start_points
+            initial_points = int(self.WRIST_POINTS[1] - self.WRIST_POINTS[0])
 
         points = []
         points += [angle[0] * start_points]
 
         weights = np.array([params[(9 + (joint_idx - 1) * 15): (9 + joint_idx * 15)]])
-        tau = initial_points / dmp_points
+        tau = float(initial_points) / dmp_points
 
         self.dmps[joint_idx - 1].w = weights
         self.dmps[joint_idx - 1].y0 = np.array([angle[0]])
@@ -261,38 +261,45 @@ class Evaluate(object):
         print("-----------------------DMP Position-----------------------")
 
         lpoints = [params[2], params[3], params[5], 0, params[7], 1.58]
-        self.robot.interpolate('left', points, skip_joints=[JN.SHOULDER_LIFT])
+        print('Generated DMP point: ', end="")
+        self.robot.print_numpy_array(lpoints)
+
+        # self.robot.interpolate('left', lpoints, skip_joints=[JN.SHOULDER_LIFT])
+        self.robot.interpolate('left', lpoints)
         rpoints = lpoints[:]
         rpoints[0] *= -1
         rpoints[5] = 3.14
-        self.robot.interpolate('right', points, skip_joints=[JN.SHOULDER_LIFT])
+        # self.robot.interpolate('right', rpoints, skip_joints=[JN.SHOULDER_LIFT])
+        self.robot.interpolate('right', rpoints)
 
-        print("-----------------------DMP Position-----------------------")
-        self.robot.start_trajectory(delay=1, gazebo=True)
-        self.robot.wait_completion(gazebo=True)
-        k = raw_input('Running move to initial dmp position')
-        if 'n' in k:
+        print("Left: ", end="")
+        self.robot.print_numpy_array(lpoints)
+        print("Right: ", end="")
+        self.robot.print_numpy_array(rpoints)
+
+        self.robot.visualize_trajectory()
+        if not self.handle_input('Running move to initial dmp position: '):
             return False
 
         self.robot.start_trajectory(delay=1)
         self.robot.wait_completion()
 
-        lpoints = [params[2], params[3], params[5], 0, params[7], 1.58]
-        self.robot.interpolate('left', points)
-        rpoints = lpoints[:]
-        rpoints[0] *= -1
-        rpoints[5] = 3.14
-        self.robot.interpolate('right', points)
+        # lpoints = [params[2], params[3], params[5], 0, params[7], 1.58]
+        # self.robot.interpolate('left', lpoints)
+        # rpoints = lpoints[:]
+        # rpoints[0] *= -1
+        # rpoints[5] = 3.14
+        # self.robot.interpolate('right', rpoints)
 
-        print("-----------------------Ball Pickup Position-----------------------")
-        self.robot.start_trajectory(delay=1, gazebo=True)
-        self.robot.wait_completion(gazebo=True)
-        k = raw_input('Running move to ball pickup')
-        if 'n' in k:
-            return False
+        # print("-----------------------Ball Pickup Position-----------------------")
+        # self.robot.visualize_trajectory()
+        # if not self.handle_input('Running move to ball pickup'):
+        #     return False
 
-        self.robot.start_trajectory(delay=1)
-        self.robot.wait_completion()
+        # self.robot.start_trajectory(delay=1)
+        # self.robot.wait_completion()
+
+        return True
 
     def handle_input(self, out):
         print(out)
