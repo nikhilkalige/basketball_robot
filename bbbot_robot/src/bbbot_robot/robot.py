@@ -1,11 +1,13 @@
 from .arm import Arm
 from bbbot_collision.srv import CollisionCheckRequest, CollisionCheckResponse, CollisionCheck
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+from moveit_msgs.msg import DisplayTrajectory, RobotTrajectory
 import rospy
 import numpy as np
 import sys
 from enum import IntEnum
 import rosbag
+import moveit_commander
 
 
 class JointNames(IntEnum):
@@ -29,21 +31,22 @@ class Robot:
                        'rightarm_wrist_1_joint', 'rightarm_wrist_2_joint', 'rightarm_wrist_3_joint'
                        ]
 
-    def __init__(self, use_prefix=False, sim=False, single_arm=False, pos_controller=True, gazebo=False):
+    def __init__(self, use_prefix=False, sim=False, single_arm=False, pos_controller=True, display=False):
         self.sim = sim
         self.collsion_service = False
         self.single_arm = single_arm
-        self.gazebo = gazebo
+        # Show trajectory on rviz
+        self.display = display
 
         self.left = Arm('LeftArm', 'leftarm', use_prefix=use_prefix, sim=sim, pos_controller=pos_controller)
-        if self.gazebo:
-            self.gazebo_left = Arm('LeftArm', 'simulator/leftarm', use_prefix=use_prefix, sim=True,
-                                   pos_controller=pos_controller)
         if not self.single_arm:
             self.right = Arm('RightArm', 'rightarm', use_prefix=use_prefix, sim=sim, pos_controller=pos_controller)
-            if self.gazebo:
-                self.gazebo_right = Arm('RightArm', 'simulator/rightarm', use_prefix=use_prefix, sim=True,
-                                        pos_controller=pos_controller)
+
+        if self.display:
+            moveit_commander.roscpp_initialize(sys.argv)
+            self.robot_model = moveit_commander.RobotCommander()
+            self.rviz_pub = rospy.Publisher('/move_group/display_planned_path',
+                                            DisplayTrajectory, queue_size=10)
 
     def control_torque(self, enable=True):
         if not self.left.control_torque(enable):
@@ -167,32 +170,20 @@ class Robot:
             if 'n' in validate.lower():
                 sys.exit(1)
 
-    def start_trajectory(self, delay=3, gazebo=False):
+    def start_trajectory(self, delay=3):
         start_time = rospy.Time.now() + rospy.Duration(delay)
-        if self.gazebo and gazebo:
-            self.gazebo_left.send_trajectory(start_time)
-            if not self.single_arm:
-                self.gazebo_right.send_trajectory(start_time)
-        else:
-            self.left.send_trajectory(start_time)
-            if not self.single_arm:
-                self.right.send_trajectory(start_time)
+        self.left.send_trajectory(start_time)
+        if not self.single_arm:
+            self.right.send_trajectory(start_time)
 
-    def wait_completion(self, gazebo=False):
+    def wait_completion(self):
         rate = rospy.Rate(10)
         while not rospy.is_shutdown():
-            if self.gazebo and gazebo:
-                if not self.gazebo_left.trajectory_active:
-                    if self.single_arm:
-                        return
-                    if not self.single_arm and not self.gazebo_right.trajectory_active:
-                        return
-            else:
-                if not self.left.trajectory_active:
-                    if self.single_arm:
-                        return
-                    if not self.single_arm and not self.right.trajectory_active:
-                        return
+            if not self.left.trajectory_active:
+                if self.single_arm:
+                    return
+                if not self.single_arm and not self.right.trajectory_active:
+                    return
             rate.sleep()
 
     def check_collision(self):
@@ -323,13 +314,13 @@ class Robot:
                 count += 1
 
     def trajectory_learning(self, points, delay=0.01):
-        arms = [self.left, self.right, self.gazebo_left, self.gazebo_right]
+        arms = [self.left, self.right]
         curr_angles = []
 
         for arm in arms:
             arm.init_trajectory()
 
-        for arm in arms[:2]:
+        for arm in arms:
             curr_angles.append(arm.get_current_joint_angles())
 
         # Set the wrist1 and wrist3 joint values
@@ -348,23 +339,16 @@ class Robot:
 
         for lpt, rpt in zip(left_points, right_points):
             self.left.add_traj_point(lpt, delay)
-            self.gazebo_left.add_traj_point(lpt, delay)
             self.right.add_traj_point(rpt, delay)
-            self.gazebo_right.add_traj_point(rpt, delay)
 
     def interpolate(self, arm_str, points, delay=0.15, skip_joints=[]):
         if arm_str == 'left':
             arms = [self.left]
-            if self.gazebo:
-                arms.append(self.gazebo_left)
 
         if arm_str == 'right':
             arms = [self.right]
-            if self.gazebo:
-                arms.append(self.gazebo_right)
 
         current_angles = arms[0].get_current_joint_angles()
-
         for arm in arms:
             arm.init_trajectory()
 
@@ -386,3 +370,53 @@ class Robot:
         for pts in joint_pos:
             for arm in arms:
                 arm.add_traj_point(pts, delay)
+
+    def visualize_trajectory(self):
+        if not self.display:
+            return
+
+        if not self.single_arm:
+            self.adjust_traj_length()
+
+        if self.rviz_pub.get_num_connections() < 1:
+            rospy.logerr("Rviz topic not subscribed")
+            return
+
+        msg = DisplayTrajectory()
+        msg.trajectory_start = self.robot_model.get_current_state()
+
+        traj = RobotTrajectory()
+        goal = JointTrajectory()
+
+        goal.joint_names = self.left.JOINT_NAMES[:]
+        if not self.single_arm:
+            goal.joint_names += self.right.JOINT_NAMES[:]
+
+        # Make the sim run slowly
+        # delay = 1
+        for idx in range(len(self.left._goal.trajectory.points)):
+            comb_point = JointTrajectoryPoint()
+            lpt = self.left._goal.trajectory.points[idx]
+
+            comb_point.positions = lpt.positions[:]
+            if not self.single_arm:
+                comb_point.positions += self.right._goal.trajectory.points[idx].positions[:]
+
+            comb_point.time_from_start = lpt.time_from_start
+            # comb_point.time_from_start = rospy.Duration(idx * delay)
+            goal.points.append(comb_point)
+
+        traj.joint_trajectory = goal
+        msg.trajectory.append(traj)
+
+        duration = goal.points[-1].time_from_start.to_sec()
+        rospy.loginfo("Waiting for trajectory animation {} seconds".format(duration))
+        self.rviz_pub.publish(msg)
+        rospy.sleep(duration)
+
+    def print_joint_trajectory(self, traj):
+        for pt in traj.points:
+            print ["{:.4f}".format(i) for i in pt.positions]
+
+    def print_numpy_array(self, pts):
+        print ["{:.4f}".format(i) for i in pts]
