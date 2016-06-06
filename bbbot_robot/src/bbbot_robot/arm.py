@@ -6,6 +6,7 @@ from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryG
 from sensor_msgs.msg import JointState
 from trajectory_msgs.msg import JointTrajectoryPoint
 from actionlib_msgs.msg import GoalStatus
+import numpy as np
 
 
 class Arm:
@@ -93,6 +94,9 @@ class Arm:
         if len(joint_angles) < len(self.JOINT_NAMES):
             rospy.logerr('Unable add point, invalid number of joint angles')
             return
+        if type(joint_angles) == np.ndarray:
+            joint_angles = joint_angles.tolist()
+
         point.positions = joint_angles[:]
         self._time_since_start = self._time_since_start + time_after_last_point
         point.time_from_start = rospy.Duration(self._time_since_start)
