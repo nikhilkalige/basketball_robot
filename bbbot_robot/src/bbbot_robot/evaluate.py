@@ -294,4 +294,24 @@ class Evaluate(object):
         self.robot.start_trajectory(delay=1)
         self.robot.wait_completion()
 
+    def handle_input(self, out):
+        print(out)
+        exit = False
+        while not exit:
+            key = raw_input('Enter key: ')
+            print('')
+            if 'n' in key:
+                return False
+            elif '1' in key:
+                print('Left: ', end="")
+                self.robot.print_joint_trajectory(self.robot.left._goal.trajectory)
+                print('Right: ', end="")
+                self.robot.print_joint_trajectory(self.robot.right._goal.trajectory)
+            elif '2' in key:
+                print('Left: ', end="")
+                self.robot.print_numpy_array(self.robot.left.get_current_joint_angles())
+                print('Right: ', end="")
+                self.robot.print_numpy_array(self.robot.right.get_current_joint_angles())
+            else:
+                exit = True
         return True
