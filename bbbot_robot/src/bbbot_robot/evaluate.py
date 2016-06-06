@@ -1,3 +1,4 @@
+from __future__ import print_function
 from bbbot_robot.robot import Robot
 import numpy as np
 import rospy
@@ -92,7 +93,7 @@ class Evaluate(object):
         trajectory.append([0] * length)
         self.robot.trajectory_learning(trajectory)
 
-        retval = self.gazebo()
+        retval = self.visualize()
         if retval:
             return retval
 
@@ -134,10 +135,9 @@ class Evaluate(object):
                 return False
         return True
 
-    def gazebo(self):
-        raw_input('Enter to start gazebo simulation: ')
-        self.robot.start_trajectory(.1, gazebo=True)
-        self.robot.wait_completion(gazebo=True)
+    def visualize(self):
+        raw_input('Enter to start rviz visualization: ')
+        self.robot.visualize_trajectory()
         ans = raw_input('Was the gazebo movement valid: ')
         if 'n' in ans:
             return self.INVALID_GAZEBO_REWARD
@@ -241,25 +241,24 @@ class Evaluate(object):
         return points
 
     def move_to_initial_position(self, params):
+        print("-----------------------Initial Position-----------------------")
         points = [2.5, 0.75, -0.4, 0, 0, 1.58]
         self.robot.interpolate('left', points)
         points = [-2.5, 0.75, -0.4, 0, 0, 3.14]
         self.robot.interpolate('right', points)
 
-        print self.robot.left._goal
+        # print self.robot.left._goal
         # print self.robot.gazebo_left._goal
-        print("-----------------------Initial Position-----------------------")
-        # self.robot.start_trajectory(delay=1, gazebo=True)
-        self.robot.start_trajectory(delay=1, gazebo=False)
-        self.robot.wait_completion(gazebo=True)
-        k = raw_input('Running move to initial position')
-        if 'n' in k:
+        self.robot.visualize_trajectory()
+        if not self.handle_input('Running move to initial position: '):
             return False
 
-        print self.robot.left._goal
+        # print self.robot.left._goal
         # print self.robot.gazebo_left._goal
-        self.robot.start_trajectory(delay=1, gazebo=True)
+        self.robot.start_trajectory(delay=1)
         self.robot.wait_completion()
+
+        print("-----------------------DMP Position-----------------------")
 
         lpoints = [params[2], params[3], params[5], 0, params[7], 1.58]
         self.robot.interpolate('left', points, skip_joints=[JN.SHOULDER_LIFT])
