@@ -371,7 +371,7 @@ class Robot:
             for arm in arms:
                 arm.add_traj_point(pts, delay)
 
-    def visualize_trajectory(self):
+    def visualize_trajectory(self, blocking=True):
         if not self.display:
             return
 
@@ -392,9 +392,10 @@ class Robot:
         if not self.single_arm:
             goal.joint_names += self.right.JOINT_NAMES[:]
 
-        # Make the sim run slowly
-        # delay = 1
-        for idx in range(len(self.left._goal.trajectory.points)):
+        # The sim is very slow if the number of points is too large
+        steps = 1 if len(self.left._goal.trajectory.points) < 100 else 10
+
+        for idx in range(0, len(self.left._goal.trajectory.points), steps):
             comb_point = JointTrajectoryPoint()
             lpt = self.left._goal.trajectory.points[idx]
 
@@ -403,16 +404,16 @@ class Robot:
                 comb_point.positions += self.right._goal.trajectory.points[idx].positions[:]
 
             comb_point.time_from_start = lpt.time_from_start
-            # comb_point.time_from_start = rospy.Duration(idx * delay)
             goal.points.append(comb_point)
 
         traj.joint_trajectory = goal
         msg.trajectory.append(traj)
 
         duration = goal.points[-1].time_from_start.to_sec()
-        rospy.loginfo("Waiting for trajectory animation {} seconds".format(duration))
         self.rviz_pub.publish(msg)
-        rospy.sleep(duration)
+        if blocking:
+            rospy.loginfo("Waiting for trajectory animation {} seconds".format(duration))
+            rospy.sleep(duration)
 
     def print_joint_trajectory(self, traj):
         for pt in traj.points:
