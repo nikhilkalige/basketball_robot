@@ -58,6 +58,8 @@ class Evaluate(object):
     ELBOW_RESTRICT = [-np.pi, np.pi]
     WRIST_RESTRICT = [-np.pi, np.pi]
 
+    PICKUP_POS = [2.9390760359372385, 1.217528331414226, -0.17592668464016736, 0, 1.2410842115944702]
+
     def __init__(self, dmp_count, bag_file):
         self.robot = Robot(use_prefix=True, display=True)
         # self.track = Tracker()
@@ -137,7 +139,7 @@ class Evaluate(object):
 
     def visualize(self):
         raw_input('Enter to start rviz visualization: ')
-        self.robot.visualize_trajectory()
+        self.robot.visualize_trajectory(False)
         ans = raw_input('Was the gazebo movement valid: ')
         if 'n' in ans:
             return self.INVALID_GAZEBO_REWARD
@@ -198,7 +200,7 @@ class Evaluate(object):
             self.dmps.append(dmp)
 
     def generate_traj_points(self, joint_idx, params):
-        no_points = int(self.OVERALL_TIME * self.TIMESTEP)
+        no_points = int(self.OVERALL_TIME / self.TIMESTEP)
         # Pan joint
         if joint_idx == 0:
             angle = params[2]
@@ -214,19 +216,19 @@ class Evaluate(object):
         # Elbow Joint
         if joint_idx == 2:
             angle = [params[5], params[6]]
-            start_points = int(params[0] * self.TIMESTEP)
+            start_points = int(params[0] / self.TIMESTEP)
             dmp_points = no_points - start_points
             initial_points = int(self.ELBOW_POINTS[1] - self.ELBOW_POINTS[0])
 
         # Wrist Joint
         if joint_idx == 3:
             angle = [params[7], params[8]]
-            start_points = int(params[1] * self.TIMESTEP)
+            start_points = int(params[1] / self.TIMESTEP)
             dmp_points = no_points - start_points
             initial_points = int(self.WRIST_POINTS[1] - self.WRIST_POINTS[0])
 
         points = []
-        points += [angle[0] * start_points]
+        points += [angle[0]] * start_points
 
         weights = np.array([params[(9 + (joint_idx - 1) * 15): (9 + joint_idx * 15)]])
         tau = float(initial_points) / dmp_points
@@ -236,7 +238,7 @@ class Evaluate(object):
         self.dmps[joint_idx - 1].goal = np.array([angle[1]])
 
         result = self.dmps[joint_idx - 1].rollout(timesteps=dmp_points, tau=tau)[0]
-        points += result.tolist()
+        points += result.T.tolist()[0]
 
         return points
 
@@ -249,12 +251,27 @@ class Evaluate(object):
 
         # print self.robot.left._goal
         # print self.robot.gazebo_left._goal
-        self.robot.visualize_trajectory()
+        self.robot.visualize_trajectory(False)
         if not self.handle_input('Running move to initial position: '):
             return False
 
         # print self.robot.left._goal
         # print self.robot.gazebo_left._goal
+        self.robot.start_trajectory(delay=1)
+        self.robot.wait_completion()
+
+        print("-----------------------Ball Pickup-----------------------")
+        lpoints = self.PICKUP_POS + [1.58]
+        self.robot.interpolate('left', lpoints)
+        rpoints = lpoints[:]
+        rpoints[0] *= -1
+        rpoints[5] = 3.14
+        self.robot.interpolate('right', rpoints)
+
+        self.robot.visualize_trajectory(False)
+        if not self.handle_input('Picking up the ball: '):
+            return False
+
         self.robot.start_trajectory(delay=1)
         self.robot.wait_completion()
 
@@ -277,8 +294,12 @@ class Evaluate(object):
         print("Right: ", end="")
         self.robot.print_numpy_array(rpoints)
 
-        self.robot.visualize_trajectory()
+        self.robot.visualize_trajectory(False)
         if not self.handle_input('Running move to initial dmp position: '):
+            return False
+
+        collision = self.robot.check_collision()
+        if collision:
             return False
 
         self.robot.start_trajectory(delay=1)
@@ -292,7 +313,7 @@ class Evaluate(object):
         # self.robot.interpolate('right', rpoints)
 
         # print("-----------------------Ball Pickup Position-----------------------")
-        # self.robot.visualize_trajectory()
+        # self.robot.visualize_trajectory(False)
         # if not self.handle_input('Running move to ball pickup'):
         #     return False
 
