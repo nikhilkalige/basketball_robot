@@ -324,9 +324,9 @@ class Robot:
             curr_angles.append(arm.get_current_joint_angles())
 
         # Set the wrist1 and wrist3 joint values
-        points = points.T
+        points = np.array(points).T
+
         points[:, JointNames.WRIST_1] = curr_angles[0][JointNames.WRIST_1]
-        # points[:, JointNames.WRIST_3] = curr_angles[0][JointNames.WRIST_3]
 
         left_points = points.copy()
         left_points[:, JointNames.WRIST_3] = curr_angles[0][JointNames.WRIST_3]
