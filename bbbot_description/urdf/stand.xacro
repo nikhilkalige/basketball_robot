@@ -15,6 +15,7 @@
         <geometry>
           <mesh filename="package://bbbot_description/meshes/visual/stand.stl" />
         </geometry>
+        <material name="white"/>
       </visual>
       <collision>
         <origin xyz="-0.3 -0.3 0" rpy="0 0 0"/>
