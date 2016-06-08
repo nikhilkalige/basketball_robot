@@ -3,6 +3,7 @@ import imutils
 import cv2
 import time
 import threading
+import rospy
 
 
 class Tracker:
@@ -22,7 +23,7 @@ class Tracker:
             # Bad, but needed
             self.camera = cv2.VideoCapture(1)
             if not self.camera.isOpened():
-                print "Unable to connect to the camera, check again"
+                rospy.logerr("Unable to connect to the camera, check again")
                 time.sleep(5)
             else:
                 connected = True
@@ -31,7 +32,7 @@ class Tracker:
         self.thread.start()
 
     def video_thread(self):
-        print 'Thread started'
+        rospy.loginfo('Camera thread started')
 
         while not self.killed:
             while self.running:

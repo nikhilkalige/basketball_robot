@@ -77,6 +77,7 @@ class Evaluate(object):
         '''Params comes from the cmaes evaluate'''
         (valid, fitness) = self.constraint(params)
         if not valid:
+            rospy.logwarn("Constraint failed")
             return fitness
 
         # Pick the ball
@@ -161,7 +162,7 @@ class Evaluate(object):
         self.track.stop()
 
         reward = self.track.get_reward()
-        print("Got reward:", reward)
+        rospy.loginfo("Got reward: {}".format(reward))
 
         ans = raw_input('Is the reward valid: ')
         if 'n' in ans:
@@ -245,24 +246,20 @@ class Evaluate(object):
         return points
 
     def move_to_initial_position(self, params):
-        print("-----------------------Initial Position-----------------------")
+        rospy.loginfo("-----------------------Initial Position-----------------------")
         points = [2.5, 0.75, -0.4, 0, 0, 1.58]
         self.robot.interpolate('left', points)
         points = [-2.5, 0.75, -0.4, 0, 0, 3.14]
         self.robot.interpolate('right', points)
 
-        # print self.robot.left._goal
-        # print self.robot.gazebo_left._goal
         self.robot.visualize_trajectory(False)
         if not self.handle_input('Running move to initial position: '):
             return False
 
-        # print self.robot.left._goal
-        # print self.robot.gazebo_left._goal
         self.robot.start_trajectory(delay=1)
         self.robot.wait_completion()
 
-        print("-----------------------Ball Pickup-----------------------")
+        rospy.loginfo("-----------------------Ball Pickup-----------------------")
         lpoints = self.PICKUP_POS + [1.58]
         self.robot.interpolate('left', lpoints)
         rpoints = lpoints[:]
@@ -277,10 +274,10 @@ class Evaluate(object):
         self.robot.start_trajectory(delay=1)
         self.robot.wait_completion()
 
-        print("-----------------------DMP Position-----------------------")
+        rospy.loginfo("-----------------------DMP Position-----------------------")
 
         lpoints = [params[2], params[3], params[5], 0, params[7], 1.58]
-        print('Generated DMP point: ', end="")
+        rospy.loginfo('Generated DMP point: ')
         self.robot.print_numpy_array(lpoints)
 
         # self.robot.interpolate('left', lpoints, skip_joints=[JN.SHOULDER_LIFT])

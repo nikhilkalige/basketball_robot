@@ -35,7 +35,7 @@ class Arm:
 
         rospy.on_shutdown(self.cleanup)
 
-        self.logmsg("Connecting to the clients")
+        self.loginfo("Connecting to the clients")
         log_str = "Timed out connecting to {} server"
 
         if not sim:
@@ -49,11 +49,14 @@ class Arm:
             rospy.signal_shutdown("Unable to connect to server")
             sys.exit(1)
 
-        self.logmsg("Succesfully connected to both clients")
+        self.loginfo("Succesfully connected to both clients")
         self._goal = FollowJointTrajectoryGoal()
 
-    def logmsg(self, msg=""):
+    def loginfo(self, msg=""):
         rospy.loginfo("{}:- {}".format(self.name, msg))
+
+    def logdebug(self, msg=""):
+        rospy.logdebug("{}:- {}".format(self.name, msg))
 
     def control_torque(self, enable=True):
         goal = ControlTorqueGoal()
@@ -68,7 +71,7 @@ class Arm:
             rospy.logerr(
                 "Torque {} failed".format("enable" if enable else "disable"))
         else:
-            self.logmsg(
+            self.loginfo(
                 "Torque {} successfully".format("enabled" if enable else "disabled"))
         return result.success
 
@@ -112,31 +115,31 @@ class Arm:
         self.traj_client.send_goal(self._goal, done_cb=self.traj_done_callback)
 
         self.trajectory_active = True
-        self.logmsg("Trajectory with {} points sent".format(
+        self.logdebug("Trajectory with {} points sent".format(
             len(self._goal.trajectory.points)))
         return True
 
     def traj_done_callback(self, goal_status, result):
         if goal_status == GoalStatus.SUCCEEDED:
-            self.logmsg("Trajectory successfully executed")
+            self.logdebug("Trajectory successfully executed")
         else:
-            self.logmsg(
+            self.logdebug(
                 "Trajectory failed to execute with status: {}".format(goal_status))
             sys.exit(1)
-        self.logmsg(result)
+        self.logdebug(result)
         self.trajectory_active = False
 
     def cleanup(self):
         try:
             status = self.traj_client.get_state()
         except Exception:
-            self.logmsg("No active goal found")
+            self.logdebug("No active goal found")
             return
         if status == GoalStatus.ACTIVE:
-            self.logmsg("Cancelling all goals")
+            self.logdebug("Cancelling all goals")
             self.traj_client.cancel_all_goals()
 
     def echo_trajectory(self):
-        self.logmsg("No of points: {}".format(len(self._goal.trajectory.points)))
+        self.loginfo("No of points: {}".format(len(self._goal.trajectory.points)))
         for pt in self._goal.trajectory.points:
             print ["{:.7f}".format(i) for i in pt.positions], '\t', 'Time: ', pt.time_from_start
