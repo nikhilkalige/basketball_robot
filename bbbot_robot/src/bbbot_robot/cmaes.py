@@ -15,7 +15,7 @@ def generate_name(folder_name):
 
 def setup_cmaes(ngen, sigma, initial_params, cmaes, eval_function):
     # We are maximizing only the distance thrown param
-    creator.create("FitnessMax", base.Fitness, weights=(1.0))
+    creator.create("FitnessMax", base.Fitness, weights=(1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMax)
 
     toolbox = base.Toolbox()
@@ -51,7 +51,6 @@ def run_cmaes(objects, ngen, pkl_location, verbose=False):
             fitness = []
 
         pickle_data((population, gen, hof, logbook, cmaes), pkl_location, gen)
-
         for idx in range(start_child, len(population)):
             child = population[idx]
             fitness.append(toolbox.evaluate(child))
