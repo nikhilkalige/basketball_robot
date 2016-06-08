@@ -2,6 +2,7 @@ from deap import base, creator, tools, cma
 import numpy as np
 import pickle
 import os
+import rospy
 import datetime
 
 
@@ -13,11 +14,13 @@ def generate_name(folder_name):
     return location
 
 
-def setup_cmaes(ngen, sigma, initial_params, cmaes, eval_function):
+def init_creator():
     # We are maximizing only the distance thrown param
     creator.create("FitnessMax", base.Fitness, weights=(1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMax)
 
+
+def setup_cmaes(ngen, sigma, initial_params, cmaes, eval_function):
     toolbox = base.Toolbox()
     toolbox.register("evaluate", eval_function)
 
@@ -40,7 +43,9 @@ def run_cmaes(objects, ngen, pkl_location, verbose=False):
     (toolbox, cmaes, hof, stats, logbook, start_gen, start_child, fitness, population) = objects
 
     # Variable to indicate first round
+    rospy.loginfo("Total generations: {}, starting with gen: {}".format(ngen, start_gen))
     for gen in range(start_gen, ngen):
+        rospy.loginfo("Current generation: {}".format(gen))
         # First round
         if gen == start_gen:
             if not population:
@@ -70,12 +75,9 @@ def run_cmaes(objects, ngen, pkl_location, verbose=False):
     pickle_data((population, ngen, hof, logbook, cmaes), pkl_location, ngen)
 
 
-def checkpoint_handle(ngen, checkpoint=None):
+def checkpoint_handle(ngen, checkpoint=None, folder=False, parent_name=False, child_name=False):
     if checkpoint:
-        with open('{}_child.pkl'.format(checkpoint), 'r') as f:
-            per_child = pickle.load(f)
-
-        with open('{}_gen.pkl'.format(checkpoint), 'r') as f:
+        with open('{}/{}_gen.pkl'.format(folder, parent_name), 'r') as f:
             per_gen = pickle.load(f)
 
         population = per_gen["population"]
@@ -85,8 +87,16 @@ def checkpoint_handle(ngen, checkpoint=None):
         cmaes = per_gen["cmaes"]
         np.random.set_state(per_gen["rndstate"])
 
-        start_child = per_child["current_child"]
-        fitness = per_child["fitness"]
+        if child_name:
+            with open('{}/{}_child.pkl'.format(folder, child_name), 'r') as f:
+                per_child = pickle.load(f)
+
+            start_child = per_child["current_child"]
+            fitness = per_child["fitness"]
+        else:
+            start_child = 0
+            fitness = []
+
     else:
         start_gen = 0
         population = []
@@ -104,13 +114,13 @@ def pickle_data(data, location, gen_no, child_no=0, gen=True):
     if gen:
         dict_data = dict(population=data[0], current_gen=data[1], halloffame=data[2],
                          logbook=data[3], cmaes=data[4], rndstate=np.random.get_state())
-        filename = 'g{}_gen.pkl'.format(gen_no)
+        filename = 'g{:05d}_gen.pkl'.format(gen_no)
         path = os.path.join(location, filename)
         with open(path, 'wb') as f:
             pickle.dump(dict_data, f)
     else:
         dict_data = dict(current_child=data[0], fitness=data[1])
-        filename = 'g{}c{}_child.pkl'.format(gen_no, child_no)
+        filename = 'g{:05d}c{:02d}_child.pkl'.format(gen_no, child_no)
         path = os.path.join(location, filename)
         with open(path, 'wb') as f:
             pickle.dump(dict_data, f)
