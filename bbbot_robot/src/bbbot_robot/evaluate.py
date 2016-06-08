@@ -45,9 +45,9 @@ class Evaluate(object):
     TIME_ERROR_REWARD = tuple([-10000])
     JOINT_ERROR_REWARD = tuple([-10000])
 
-    OVERALL_TIME = 6  # seconds
+    OVERALL_TIME = 0.6  # seconds
     TIMESTEP = 0.01
-    DEFAULT_PARAMS = [0, 3, 1.697875, 0.2946925, 0.9123826, 1.660619, 0.3703937, 0.5213307, -0.529045]
+    DEFAULT_PARAMS = [0, 0.3, 1.697875, 0.2946925, 0.9123826, 1.660619, 0.3703937, 0.5213307, -0.529045]
 
     LIFT_POINTS = [50, 105]
     ELBOW_POINTS = [45, 100]
@@ -62,7 +62,7 @@ class Evaluate(object):
 
     def __init__(self, dmp_count, bag_file):
         self.robot = Robot(use_prefix=True, display=True)
-        # self.track = Tracker()
+        self.track = Tracker()
         self.init_dmp(dmp_count, bag_file)
         self.robot.control_torque()
 
@@ -156,6 +156,8 @@ class Evaluate(object):
         self.track.start()
         self.robot.start_trajectory(2)
         self.robot.wait_completion()
+        # Needs some delay before we get the reward
+        time.sleep(5)
         self.track.stop()
 
         reward = self.track.get_reward()
