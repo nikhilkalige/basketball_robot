@@ -16,6 +16,7 @@ class Tracker:
         connected = False
         self.max_radius = 100000
         self.running = False
+        self.killed = False
 
         while not connected:
             # Bad, but needed
@@ -32,7 +33,7 @@ class Tracker:
     def video_thread(self):
         print 'Thread started'
 
-        while True:
+        while not self.killed:
             while self.running:
                 (grabbed, frame) = self.camera.read()
                 hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -70,6 +71,9 @@ class Tracker:
 
     def stop(self):
         self.running = False
+
+    def kill(self):
+        self.killed = True
 
     def get_reward(self):
         return self.max_radius
