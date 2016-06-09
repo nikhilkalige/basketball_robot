@@ -8,6 +8,7 @@ from bbbot_robot.tracking import Tracker
 import time
 import rosbag
 from pydmps.dmp_discrete import DMPs_discrete
+from enum import IntEnum
 
 
 '''
@@ -37,6 +38,19 @@ weightsLift, weightsElbow, weightsWrist]
 
 Totally = 9 + 3 * 15 = 54
 '''
+
+
+class PIdx(IntEnum):
+    D_ELBOW = 0
+    D_WRIST = 1
+    STR_PAN = 2
+    STR_LFT = 3
+    END_LFT = 4
+    STR_ELB = 5
+    END_ELB = 6
+    STR_WRI = 7
+    END_WRI = 8
+    DMP_STR = 9
 
 
 class Evaluate(object):
@@ -104,17 +118,17 @@ class Evaluate(object):
 
     def constraint(self, params):
         '''Return (valid, fitness)'''
-        if not self.validate_time(params[0], params[5], params[6]):
+        if not self.validate_time(params[PIdx.D_ELBOW], params[PIdx.STR_ELB], params[PIdx.END_ELB]):
             return (False, self.TIME_ERROR_REWARD)
-        if not self.validate_time(params[1], params[7], params[8]):
+        if not self.validate_time(params[PIdx.D_WRIST], params[PIdx.STR_WRI], params[PIdx.END_WRI]):
             return (False, self.TIME_ERROR_REWARD)
-        if not self.validate_joint_limits([params[2]], self.PAN_RESTRICT):
+        if not self.validate_joint_limits([params[PIdx.STR_PAN]], self.PAN_RESTRICT):
             return (False, self.JOINT_ERROR_REWARD)
-        if not self.validate_joint_limits([params[3], params[4]], self.LIFT_RESTRICT):
+        if not self.validate_joint_limits([params[PIdx.STR_LFT], params[PIdx.END_LFT]], self.LIFT_RESTRICT):
             return (False, self.JOINT_ERROR_REWARD)
-        if not self.validate_joint_limits([params[5], params[6]], self.ELBOW_RESTRICT):
+        if not self.validate_joint_limits([params[PIdx.STR_ELB], params[PIdx.END_ELB]], self.ELBOW_RESTRICT):
             return (False, self.JOINT_ERROR_REWARD)
-        if not self.validate_joint_limits([params[7], params[8]], self.WRIST_RESTRICT):
+        if not self.validate_joint_limits([params[PIdx.STR_WRI], params[PIdx.END_WRI]], self.WRIST_RESTRICT):
             return (False, self.JOINT_ERROR_REWARD)
         return (True, tuple())
 
@@ -158,7 +172,7 @@ class Evaluate(object):
         self.robot.start_trajectory(2)
         self.robot.wait_completion()
         # Needs some delay before we get the reward
-        time.sleep(5)
+        time.sleep(4)
         self.track.stop()
 
         reward = self.track.get_reward()
@@ -206,34 +220,34 @@ class Evaluate(object):
         no_points = int(self.OVERALL_TIME / self.TIMESTEP)
         # Pan joint
         if joint_idx == 0:
-            angle = params[2]
+            angle = params[PIdx.STR_PAN]
             return [angle] * no_points
 
         # Lift Joint
         if joint_idx == 1:
-            angle = [params[3], params[4]]
+            angle = [params[PIdx.STR_LFT], params[PIdx.END_LFT]]
             start_points = 0
             dmp_points = no_points
             initial_points = int(self.LIFT_POINTS[1] - self.LIFT_POINTS[0])
 
         # Elbow Joint
         if joint_idx == 2:
-            angle = [params[5], params[6]]
-            start_points = int(params[0] / self.TIMESTEP)
+            angle = [params[PIdx.STR_ELB], params[PIdx.END_ELB]]
+            start_points = int(params[PIdx.D_ELBOW] / self.TIMESTEP)
             dmp_points = no_points - start_points
             initial_points = int(self.ELBOW_POINTS[1] - self.ELBOW_POINTS[0])
 
         # Wrist Joint
         if joint_idx == 3:
-            angle = [params[7], params[8]]
-            start_points = int(params[1] / self.TIMESTEP)
+            angle = [params[PIdx.STR_WRI], params[PIdx.END_WRI]]
+            start_points = int(params[PIdx.D_WRIST] / self.TIMESTEP)
             dmp_points = no_points - start_points
             initial_points = int(self.WRIST_POINTS[1] - self.WRIST_POINTS[0])
 
         points = []
         points += [angle[0]] * start_points
 
-        weights = np.array([params[(9 + (joint_idx - 1) * 15): (9 + joint_idx * 15)]])
+        weights = np.array([params[(PIdx.DMP_STR + (joint_idx - 1) * 15): (PIdx.DMP_STR + joint_idx * 15)]])
         tau = float(initial_points) / dmp_points
 
         self.dmps[joint_idx - 1].w = weights
@@ -276,7 +290,9 @@ class Evaluate(object):
 
         rospy.loginfo("-----------------------DMP Position-----------------------")
 
-        lpoints = [params[2], params[3], params[5], 0, params[7], 1.58]
+        lpoints = [params[PIdx.STR_PAN], params[PIdx.STR_LFT], params[PIdx.STR_ELB],
+                   0, params[PIdx.STR_WRI], 1.58]
+
         rospy.loginfo('Generated DMP point: ')
         self.robot.print_numpy_array(lpoints)
 
