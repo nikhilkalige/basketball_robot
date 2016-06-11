@@ -165,9 +165,9 @@ class Evaluate(object):
 
     def constraint(self, params):
         """Return (valid, fitness)"""
-        if not(0 < params[PIdx.D_ELBOW] < self.OVERALL_TIME):
+        if not(0 <= params[PIdx.D_ELBOW] < self.OVERALL_TIME):
             return (False, self.TIME_ERROR_REWARD)
-        if not(0 < params[PIdx.D_WRIST] < self.OVERALL_TIME):
+        if not(0 <= params[PIdx.D_WRIST] < self.OVERALL_TIME):
             return (False, self.TIME_ERROR_REWARD)
 
         if not self.validate_time(params[PIdx.D_ELBOW], params[PIdx.STR_ELB], params[PIdx.END_ELB]):
@@ -479,7 +479,7 @@ class EvaluateHansen(Evaluate):
         rospy.logdebug('Eff distance: {}'.format(dist))
 
         # Check collision
-        if not self.collision_constraint(params):
+        if not self.collision_constraint(scaled_params):
             return False
         return True
 
