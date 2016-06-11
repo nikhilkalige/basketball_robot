@@ -77,6 +77,8 @@ class Evaluate(object):
     ELBOW_RESTRICT = [-np.pi, np.pi]
     WRIST_RESTRICT = [-np.pi, np.pi]
 
+    BALL_GRASP_DISTANCE = [0.41, 0.56]
+
     PICKUP_POS = [2.9390760359372385, 1.217528331414226, -0.17592668464016736, 0, 1.2410842115944702]
 
     def __init__(self, dmp_count, bag_file):
@@ -103,7 +105,7 @@ class Evaluate(object):
         # Pick the ball
         # Move to the initial position
         if not self.move_to_initial_position(params):
-            return self.COLLISION_REWARD
+            return tuple([r * 0.8 for r in self.COLLISION_REWARD])
 
         # Start the throwing process
         # get the weights from params with shape (4, dmp_count)
@@ -124,10 +126,16 @@ class Evaluate(object):
 
     def constraint(self, params):
         '''Return (valid, fitness)'''
+        if not(0 < params[PIdx.D_ELBOW] < self.OVERALL_TIME):
+            return (False, self.TIME_ERROR_REWARD)
+        if not(0 < params[PIdx.D_WRIST] < self.OVERALL_TIME):
+            return (False, self.TIME_ERROR_REWARD)
+
         if not self.validate_time(params[PIdx.D_ELBOW], params[PIdx.STR_ELB], params[PIdx.END_ELB]):
             return (False, self.TIME_ERROR_REWARD)
         if not self.validate_time(params[PIdx.D_WRIST], params[PIdx.STR_WRI], params[PIdx.END_WRI]):
             return (False, self.TIME_ERROR_REWARD)
+
         if not self.validate_joint_limits([params[PIdx.STR_PAN]], self.PAN_RESTRICT):
             return (False, self.JOINT_ERROR_REWARD)
         if not self.validate_joint_limits([params[PIdx.STR_LFT], params[PIdx.END_LFT]], self.LIFT_RESTRICT):
@@ -163,7 +171,7 @@ class Evaluate(object):
         self.robot.visualize_trajectory(False)
         ans = raw_input('Was the gazebo movement valid: ')
         if 'n' in ans:
-            return self.INVALID_GAZEBO_REWARD
+            return tuple([r * 0.6 for r in self.INVALID_GAZEBO_REWARD])
         else:
             return tuple()
 
@@ -266,33 +274,43 @@ class Evaluate(object):
         return points
 
     def move_to_initial_position(self, params):
-        rospy.loginfo("-----------------------Initial Position-----------------------")
-        points = [2.5, 0.75, -0.4, 0, 0, 1.58]
-        self.robot.interpolate('left', points)
-        points = [-2.5, 0.75, -0.4, 0, 0, 3.14]
-        self.robot.interpolate('right', points)
+        if self.arm_state == ArmState.DMP:
+            rospy.loginfo("-----------------------Initial Position-----------------------")
+            points = [2.5, 0.75, -0.4, 0, 0, 1.58]
+            self.robot.interpolate('left', points)
+            points = [-2.5, 0.75, -0.4, 0, 0, 3.14]
+            self.robot.interpolate('right', points)
 
-        self.robot.visualize_trajectory(False)
-        if not self.handle_input('Running move to initial position: '):
-            return False
+            self.robot.visualize_trajectory(False)
+            if not self.handle_input('Running move to initial position: '):
+                return False
 
-        self.robot.start_trajectory(delay=1)
-        self.robot.wait_completion()
+            self.robot.start_trajectory(delay=1)
+            self.robot.wait_completion()
 
-        rospy.loginfo("-----------------------Ball Pickup-----------------------")
-        lpoints = self.PICKUP_POS + [1.58]
-        self.robot.interpolate('left', lpoints)
-        rpoints = lpoints[:]
-        rpoints[0] *= -1
-        rpoints[5] = 3.14
-        self.robot.interpolate('right', rpoints)
+            rospy.loginfo("-----------------------Ball Pickup-----------------------")
+            lpoints = self.PICKUP_POS + [1.58]
+            # self.robot.interpolate('left', lpoints)
+            self.robot.interpolate('left', lpoints, skip_joints=[JN.SHOULDER_LIFT])
+            rpoints = lpoints[:]
+            rpoints[0] *= -1
+            rpoints[5] = 3.14
+            # self.robot.interpolate('right', rpoints)
+            self.robot.interpolate('right', rpoints, skip_joints=[JN.SHOULDER_LIFT])
 
-        self.robot.visualize_trajectory(False)
-        if not self.handle_input('Picking up the ball: '):
-            return False
+            self.robot.visualize_trajectory(False)
+            if not self.handle_input('Picking up the ball: '):
+                return False
 
-        self.robot.start_trajectory(delay=1)
-        self.robot.wait_completion()
+            self.robot.start_trajectory(delay=1)
+            self.robot.wait_completion()
+
+            self.robot.interpolate('left', lpoints)
+            self.robot.interpolate('right', rpoints)
+
+            self.robot.start_trajectory(delay=1)
+            self.robot.wait_completion()
+
             self.arm_state = ArmState.INITIAL
 
         rospy.loginfo("-----------------------DMP Position-----------------------")
@@ -311,10 +329,10 @@ class Evaluate(object):
         # self.robot.interpolate('right', rpoints, skip_joints=[JN.SHOULDER_LIFT])
         self.robot.interpolate('right', rpoints)
 
-        print("Left: ", end="")
-        self.robot.print_numpy_array(lpoints)
-        print("Right: ", end="")
-        self.robot.print_numpy_array(rpoints)
+        # print("Left: ", end="")
+        # self.robot.print_numpy_array(lpoints)
+        # print("Right: ", end="")
+        # self.robot.print_numpy_array(rpoints)
 
         self.robot.visualize_trajectory(False)
         if not self.handle_input('Running move to initial dmp position: '):
@@ -326,7 +344,6 @@ class Evaluate(object):
 
         self.robot.start_trajectory(delay=1)
         self.robot.wait_completion()
-
         self.arm_state = ArmState.DMP
         # lpoints = [params[2], params[3], params[5], 0, params[7], 1.58]
         # self.robot.interpolate('left', lpoints)
@@ -366,3 +383,98 @@ class Evaluate(object):
             else:
                 exit = True
         return True
+
+
+class EvaluateHansen(Evaluate):
+    DMP_RESTRICT = [-1000, 1000]
+    MAX_VALID_REWARD = 600
+
+    def __init__(self, *args, **kwargs):
+        self.run_count = 0
+        super(EvaluateHansen, self).__init__(*args, **kwargs)
+
+    def scale(self, val, src, dst):
+        """
+        Scale the given value from the scale of src to the scale of dst.
+        """
+        return ((val - src[0]) / (src[1] - src[0])) * (dst[1] - dst[0]) + dst[0]
+
+    def scale_params(self, params):
+        in_range = [0, 10]
+        scaled_params = [0] * len(params)
+        scaled_params[0] = self.scale(params[0], in_range, [0, self.OVERALL_TIME])
+        scaled_params[1] = self.scale(params[1], in_range, [0, self.OVERALL_TIME])
+        scaled_params[2] = self.scale(params[2], in_range, self.PAN_RESTRICT)
+        scaled_params[3] = self.scale(params[3], in_range, self.LIFT_RESTRICT)
+        scaled_params[4] = self.scale(params[4], in_range, self.LIFT_RESTRICT)
+        scaled_params[5] = self.scale(params[5], in_range, self.ELBOW_RESTRICT)
+        scaled_params[6] = self.scale(params[6], in_range, self.ELBOW_RESTRICT)
+        scaled_params[7] = self.scale(params[7], in_range, self.WRIST_RESTRICT)
+        scaled_params[8] = self.scale(params[8], in_range, self.WRIST_RESTRICT)
+
+        for i in range(9, len(params)):
+            scaled_params[i] = self.scale(params[i], in_range, self.DMP_RESTRICT)
+        return scaled_params
+
+    def get_initial_params(self):
+        out_range = [0, 10]
+        params = super(EvaluateHansen, self).get_initial_params()
+        scaled_params = [0] * len(params)
+        scaled_params[0] = self.scale(params[0], [0, self.OVERALL_TIME], out_range)
+        scaled_params[1] = self.scale(params[1], [0, self.OVERALL_TIME], out_range)
+        scaled_params[2] = self.scale(params[2], self.PAN_RESTRICT, out_range)
+        scaled_params[3] = self.scale(params[3], self.LIFT_RESTRICT, out_range)
+        scaled_params[4] = self.scale(params[4], self.LIFT_RESTRICT, out_range)
+        scaled_params[5] = self.scale(params[5], self.ELBOW_RESTRICT, out_range)
+        scaled_params[6] = self.scale(params[6], self.ELBOW_RESTRICT, out_range)
+        scaled_params[7] = self.scale(params[7], self.WRIST_RESTRICT, out_range)
+        scaled_params[8] = self.scale(params[8], self.WRIST_RESTRICT, out_range)
+
+        for i in range(9, len(params)):
+            scaled_params[i] = self.scale(params[i], self.DMP_RESTRICT, out_range)
+        return scaled_params
+
+    def check_feasible(self, params, f):
+        if f is not None:
+            if any([v > 1000 for v in f]):
+                rospy.logwarn('Failed fitness value {}'.format(f))
+                return False
+            else:
+                rospy.logwarn('Skip feasibility, good reward')
+                return True
+        scaled_params = self.scale_params(params)
+        (valid, fitness) = self.constraint(scaled_params)
+        if not valid:
+            rospy.logwarn('Check feasible failed')
+            return valid
+
+        lpoints = [scaled_params[PIdx.STR_PAN], scaled_params[PIdx.STR_LFT],
+                   scaled_params[PIdx.STR_ELB], 0, scaled_params[PIdx.STR_WRI], 1.58]
+        rpoints = lpoints[:]
+        rpoints[0] *= -1
+        rpoints[5] = 3.14
+
+        dist = self.robot.get_dist_btw_effectors(lpoints, rpoints)
+        if not (self.BALL_GRASP_DISTANCE[0] <= dist <= self.BALL_GRASP_DISTANCE[1]):
+            rospy.logwarn('Check feasible failed distance - {}'.format(dist))
+            return False
+        rospy.logwarn('Valid distance - {}'.format(dist))
+        return True
+
+    def eval(self, params):
+        # return [np.random.random() * 1000]
+        scaled_params = self.scale_params(params)
+        if not self.check_feasible(params, None):
+            return [10000]
+
+        fitness = super(EvaluateHansen, self).eval(scaled_params)
+        # Hansen only minimizes, so convert all negative values to positive values
+        val = fitness[0]
+        if val < 0:
+            # Means a invalid function evaluation
+            reward = [-val]
+        else:
+            # A valid run
+            reward = [self.MAX_VALID_REWARD - val]
+        rospy.loginfo("Reward: {}".format(reward))
+        return reward
