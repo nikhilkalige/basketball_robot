@@ -34,9 +34,11 @@ def cmaes_deap(robot, location):
 
 
 def cmaes_hansen(robot, location):
-    cmaes = hans_setup_cmaes(SIGMA, robot.get_initial_params(), robot.check_feasible)
+    cmaes = hans_setup_cmaes(SIGMA, robot.get_initial_params(), constraint_func=True)
+
     # filename = '/home/lonewolf/workspace/asu/thesis/cmaes_dump/09_06_17_01_07/cma_00001.pkl'
-    # cmaes = hans_setup_cmaes(SIGMA, robot.get_initial_params(), True, filename)
+    # cmaes = hans_setup_cmaes(SIGMA, robot.get_initial_params(), checkpoint=True, filename=filename)
+
     hans_run_cmaes(cmaes, robot.eval, location)
 
 

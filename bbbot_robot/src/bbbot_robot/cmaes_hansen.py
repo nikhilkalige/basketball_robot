@@ -5,10 +5,23 @@ import os
 import rospy
 
 
+# Hack to check feasibility as instance method fails to pickle
+def check_feasible(params, fitness):
+    if fitness is not None:
+        if any([v > 1000 for v in fitness]):
+            rospy.logwarn('Const Check: Failed fitness value {}'.format(fitness))
+            return False
+        else:
+            rospy.logwarn('Const Check: Skip feasibility, good reward')
+            return True
+    return True
+
+
 def hans_setup_cmaes(sigma, initial_params, constraint_func=False, checkpoint=False, filename=False):
     opts = cma.CMAOptions()
     if constraint_func:
-        opts.set('is_feasible', constraint_func)
+        opts.set('is_feasible', check_feasible)
+
     # opts.set('bounds', [0, 10])
     # opts.set('boundary_handling', 'BoundTransform')
 
