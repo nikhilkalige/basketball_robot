@@ -314,16 +314,18 @@ class Robot:
 
                 count += 1
 
-    def trajectory_learning(self, points, delay=0.01):
+    def trajectory_learning(self, points, delay=0.01, current_angles=[]):
         arms = [self.left, self.right]
         curr_angles = []
 
         for arm in arms:
             arm.init_trajectory()
 
-        for arm in arms:
-            curr_angles.append(arm.get_current_joint_angles())
-
+        if not current_angles:
+            for arm in arms:
+                curr_angles.append(arm.get_current_joint_angles())
+        else:
+            curr_angles = [row[:] for row in current_angles]
         # Set the wrist1 and wrist3 joint values
         points = np.array(points).T
 
@@ -342,14 +344,16 @@ class Robot:
             self.left.add_traj_point(lpt, delay)
             self.right.add_traj_point(rpt, delay)
 
-    def interpolate(self, arm_str, points, delay=0.15, skip_joints=[]):
+    def interpolate(self, arm_str, points, delay=0.15, skip_joints=[], current_angles=[]):
         if arm_str == 'left':
             arms = [self.left]
 
         if arm_str == 'right':
             arms = [self.right]
 
-        current_angles = arms[0].get_current_joint_angles()
+        if not current_angles:
+            current_angles = arms[0].get_current_joint_angles()
+
         for arm in arms:
             arm.init_trajectory()
 

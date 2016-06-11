@@ -96,7 +96,7 @@ class Evaluate(object):
         return self.DEFAULT_PARAMS + weights
 
     def eval(self, params):
-        '''Params comes from the cmaes evaluate'''
+        """Params comes from the cmaes evaluate"""
         (valid, fitness) = self.constraint(params)
         if not valid:
             rospy.logwarn("Constraint failed")
@@ -124,8 +124,47 @@ class Evaluate(object):
 
         return self.real_run()
 
+    def collision_constraint(self, params):
+        """ Will check for two collsions, ball pick to dmp and dmp to throw"""
+        lpoints = [params[PIdx.STR_PAN], params[PIdx.STR_LFT], params[PIdx.STR_ELB],
+                   0, params[PIdx.STR_WRI], 1.58]
+
+        # Current angle will be the ball pickup position
+        l_cur_angle = self.PICKUP_POS + [1.58]
+        r_cur_angle = l_cur_angle[:]
+        r_cur_angle[0] *= -1
+        r_cur_angle[5] = 3.14
+
+        self.robot.interpolate('left', lpoints, current_angles=l_cur_angle)
+        rpoints = lpoints[:]
+        rpoints[0] *= -1
+        rpoints[5] = 3.14
+        self.robot.interpolate('right', rpoints, current_angles=r_cur_angle)
+
+        collision = self.robot.check_collision()
+        if collision:
+            rospy.logwarn("Constraint Failed: DMP Collision")
+            return False
+
+        trajectory = []
+        for idx in range(4):
+            trajectory.append(self.generate_traj_points(idx, params))
+        # Insert zeros in position for Wrist 1 and Wrist 3 joints
+        length = len(trajectory[0])
+        trajectory.insert(3, [0] * length)
+        trajectory.append([0] * length)
+
+        curr_angles = [lpoints, rpoints]
+        self.robot.trajectory_learning(trajectory, current_angles=curr_angles)
+        collision = self.robot.check_collision()
+        if collision:
+            rospy.logwarn("Constraint Failed: Throw Collision")
+            return False
+
+        return True
+
     def constraint(self, params):
-        '''Return (valid, fitness)'''
+        """Return (valid, fitness)"""
         if not(0 < params[PIdx.D_ELBOW] < self.OVERALL_TIME):
             return (False, self.TIME_ERROR_REWARD)
         if not(0 < params[PIdx.D_WRIST] < self.OVERALL_TIME):
@@ -290,12 +329,11 @@ class Evaluate(object):
 
             rospy.loginfo("-----------------------Ball Pickup-----------------------")
             lpoints = self.PICKUP_POS + [1.58]
-            # self.robot.interpolate('left', lpoints)
             self.robot.interpolate('left', lpoints, skip_joints=[JN.SHOULDER_LIFT])
+
             rpoints = lpoints[:]
             rpoints[0] *= -1
             rpoints[5] = 3.14
-            # self.robot.interpolate('right', rpoints)
             self.robot.interpolate('right', rpoints, skip_joints=[JN.SHOULDER_LIFT])
 
             self.robot.visualize_trajectory(False)
@@ -314,25 +352,18 @@ class Evaluate(object):
             self.arm_state = ArmState.INITIAL
 
         rospy.loginfo("-----------------------DMP Position-----------------------")
-
         lpoints = [params[PIdx.STR_PAN], params[PIdx.STR_LFT], params[PIdx.STR_ELB],
                    0, params[PIdx.STR_WRI], 1.58]
 
         rospy.loginfo('Generated DMP point: ')
         self.robot.print_numpy_array(lpoints)
 
-        # self.robot.interpolate('left', lpoints, skip_joints=[JN.SHOULDER_LIFT])
         self.robot.interpolate('left', lpoints)
+
         rpoints = lpoints[:]
         rpoints[0] *= -1
         rpoints[5] = 3.14
-        # self.robot.interpolate('right', rpoints, skip_joints=[JN.SHOULDER_LIFT])
         self.robot.interpolate('right', rpoints)
-
-        # print("Left: ", end="")
-        # self.robot.print_numpy_array(lpoints)
-        # print("Right: ", end="")
-        # self.robot.print_numpy_array(rpoints)
 
         self.robot.visualize_trajectory(False)
         if not self.handle_input('Running move to initial dmp position: '):
@@ -345,21 +376,6 @@ class Evaluate(object):
         self.robot.start_trajectory(delay=1)
         self.robot.wait_completion()
         self.arm_state = ArmState.DMP
-        # lpoints = [params[2], params[3], params[5], 0, params[7], 1.58]
-        # self.robot.interpolate('left', lpoints)
-        # rpoints = lpoints[:]
-        # rpoints[0] *= -1
-        # rpoints[5] = 3.14
-        # self.robot.interpolate('right', rpoints)
-
-        # print("-----------------------Ball Pickup Position-----------------------")
-        # self.robot.visualize_trajectory(False)
-        # if not self.handle_input('Running move to ball pickup'):
-        #     return False
-
-        # self.robot.start_trajectory(delay=1)
-        # self.robot.wait_completion()
-
         return True
 
     def handle_input(self, out):
@@ -442,10 +458,11 @@ class EvaluateHansen(Evaluate):
             else:
                 rospy.logwarn('Skip feasibility, good reward')
                 return True
+
         scaled_params = self.scale_params(params)
         (valid, fitness) = self.constraint(scaled_params)
         if not valid:
-            rospy.logwarn('Check feasible failed')
+            rospy.logwarn('Constraint Failed: Invalid Params')
             return valid
 
         lpoints = [scaled_params[PIdx.STR_PAN], scaled_params[PIdx.STR_LFT],
@@ -456,9 +473,14 @@ class EvaluateHansen(Evaluate):
 
         dist = self.robot.get_dist_btw_effectors(lpoints, rpoints)
         if not (self.BALL_GRASP_DISTANCE[0] <= dist <= self.BALL_GRASP_DISTANCE[1]):
-            rospy.logwarn('Check feasible failed distance - {}'.format(dist))
+            rospy.logwarn('Constraint Failed: Eff distance: {}'.format(dist))
             return False
-        rospy.logwarn('Valid distance - {}'.format(dist))
+
+        rospy.logdebug('Eff distance: {}'.format(dist))
+
+        # Check collision
+        if not self.collision_constraint(params):
+            return False
         return True
 
     def eval(self, params):
