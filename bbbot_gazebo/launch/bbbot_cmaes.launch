@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- <include file="$(find bbbot_collision)/launch/collision_check.launch" /> -->
+
+  <!-- By default, we are not in debug mode -->
+  <arg name="debug" default="false" />
+
+
+  <include file="$(find bbbot_moveit)/launch/move_group.launch">
+    <arg name="allow_trajectory_execution" value="true"/>
+    <arg name="fake_execution" value="true"/>
+    <arg name="info" value="true"/>
+    <arg name="debug" value="$(arg debug)"/>
+  </include>
+
+  <include file="$(find bbbot_moveit)/launch/moveit_rviz.launch">
+    <arg name="config" value="true"/>
+    <arg name="debug" value="false"/>
+  </include>
+
+  <node name="bbbot_collision" pkg="bbbot_collision" type="bbbot_collision" output="screen" />
+
+</launch>
