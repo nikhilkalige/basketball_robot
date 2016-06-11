@@ -2,6 +2,7 @@ from .arm import Arm
 from bbbot_collision.srv import CollisionCheckRequest, CollisionCheckResponse, CollisionCheck
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from moveit_msgs.msg import DisplayTrajectory, RobotTrajectory
+from moveit_msgs.srv import GetPositionFKRequest, GetPositionFK
 import rospy
 import numpy as np
 import sys
@@ -414,6 +415,27 @@ class Robot:
         if blocking:
             rospy.loginfo("Waiting for trajectory animation {} seconds".format(duration))
             rospy.sleep(duration)
+
+    def get_dist_btw_effectors(self, left_angles, right_angles):
+        msg = GetPositionFKRequest()
+        msg.header.frame_id = 'base_link'
+        msg.fk_link_names = ['leftarm_ee_link', 'rightarm_ee_link']
+        msg.robot_state.joint_state.name = self.left.JOINT_NAMES + self.right.JOINT_NAMES
+        msg.robot_state.joint_state.position = left_angles + right_angles
+        try:
+            fk_service = rospy.ServiceProxy("compute_fk", GetPositionFK)
+            resp = fk_service(msg)
+            if resp.error_code.val != 1:
+                return -1
+        except rospy.ServiceException as e:
+            rospy.logwarn("Exception on fk service {}".format(e))
+            return -1
+
+        l_pos = resp.pose_stamped[0].pose.position.y
+        r_pos = resp.pose_stamped[1].pose.position.y
+        dist = abs(l_pos - r_pos)
+        # We will tolerate 2cm errors on each side
+        return dist + 0.04
 
     def print_joint_trajectory(self, traj):
         for pt in traj.points:
