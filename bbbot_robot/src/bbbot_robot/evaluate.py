@@ -53,6 +53,11 @@ class PIdx(IntEnum):
     DMP_STR = 9
 
 
+class ArmState(IntEnum):
+    INITIAL = 1
+    DMP = 2
+
+
 class Evaluate(object):
     INVALID_GAZEBO_REWARD = tuple([-10000])
     COLLISION_REWARD = tuple([-10000])
@@ -79,6 +84,7 @@ class Evaluate(object):
         self.track = Tracker()
         self.init_dmp(dmp_count, bag_file)
         self.robot.control_torque()
+        self.arm_state = ArmState.DMP
 
     def get_initial_params(self):
         weights = []
@@ -287,6 +293,7 @@ class Evaluate(object):
 
         self.robot.start_trajectory(delay=1)
         self.robot.wait_completion()
+            self.arm_state = ArmState.INITIAL
 
         rospy.loginfo("-----------------------DMP Position-----------------------")
 
@@ -320,6 +327,7 @@ class Evaluate(object):
         self.robot.start_trajectory(delay=1)
         self.robot.wait_completion()
 
+        self.arm_state = ArmState.DMP
         # lpoints = [params[2], params[3], params[5], 0, params[7], 1.58]
         # self.robot.interpolate('left', lpoints)
         # rpoints = lpoints[:]
