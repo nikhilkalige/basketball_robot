@@ -41,7 +41,7 @@ def hans_run_cmaes(es, eval_function, pkl_location, log_iters=1):
         X, fit = es.ask_and_eval(eval_function)
         es.tell(X, fit)  # pass on fitness values
         es.logger.add()
-        es.disp(20)  # print every 20-th iteration
+        es.disp(1)
         # if es.countiter % log_iters == 0:
         #     try:
         #         es.logger.plot()

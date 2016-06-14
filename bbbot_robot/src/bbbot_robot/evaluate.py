@@ -403,6 +403,7 @@ class Evaluate(object):
 
 class EvaluateHansen(Evaluate):
     DMP_RESTRICT = [-1000, 1000]
+    DMP_RANGE = [0, 40]
     MAX_VALID_REWARD = 600
 
     def __init__(self, *args, **kwargs):
@@ -429,7 +430,7 @@ class EvaluateHansen(Evaluate):
         scaled_params[8] = self.scale(params[8], in_range, self.WRIST_RESTRICT)
 
         for i in range(9, len(params)):
-            scaled_params[i] = self.scale(params[i], in_range, self.DMP_RESTRICT)
+            scaled_params[i] = self.scale(params[i], self.DMP_RANGE, self.DMP_RESTRICT)
         return scaled_params
 
     def get_initial_params(self):
@@ -447,7 +448,7 @@ class EvaluateHansen(Evaluate):
         scaled_params[8] = self.scale(params[8], self.WRIST_RESTRICT, out_range)
 
         for i in range(9, len(params)):
-            scaled_params[i] = self.scale(params[i], self.DMP_RESTRICT, out_range)
+            scaled_params[i] = self.scale(params[i], self.DMP_RESTRICT, self.DMP_RANGE)
         return scaled_params
 
     def check_feasible(self, params, f):
@@ -476,7 +477,7 @@ class EvaluateHansen(Evaluate):
             rospy.logwarn('Constraint Failed: Eff distance: {}'.format(dist))
             return False
 
-        rospy.logdebug('Eff distance: {}'.format(dist))
+        rospy.loginfo('Eff distance: {}'.format(dist))
 
         # Check collision
         if not self.collision_constraint(scaled_params):
