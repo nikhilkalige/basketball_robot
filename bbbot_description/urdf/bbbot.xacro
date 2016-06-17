@@ -2,6 +2,7 @@
 <!-- Revolute-Revolute Manipulator -->
 <robot name="bbbot" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
+  <xacro:arg name="gazebo" default="true"/>
   <!-- manipulator_h arm-->
   <xacro:include filename="$(find manipulator_description)/urdf/manipulator_h.xacro" />
   <!-- stand -->
@@ -11,6 +12,15 @@
 
   <!-- Used for fixing robot to Gazebo 'base_link' -->
   <link name="base_link"/>
+
+  <xacro:if value="$(arg gazebo)">
+    <!-- When using the pedistal, fix Baxter to Gazebo world with 'base' frame -->
+    <link name="world"/>
+    <joint name="fixed" type="fixed">
+      <parent link="world"/>
+      <child link="base_link"/>
+    </joint>
+  </xacro:if>
 
   <xacro:stand prefix="" parent="base_link">
     <origin xyz="0 0 0" rpy="0 0 0" />
@@ -34,6 +44,7 @@
   <xacro:manipulator_h_arm prefix="rightarm" joint_limited="false" parent="base_link">
     <origin xyz="0.045 -0.1665 1.526" rpy="${pi/2} ${-pi/2} 0" />
   </xacro:manipulator_h_arm>
+
 
   <xacro:fingers prefix="rightarm" parent="rightarm_ee_link">
     <origin xyz="0 0 0" rpy="0 0 0" />
