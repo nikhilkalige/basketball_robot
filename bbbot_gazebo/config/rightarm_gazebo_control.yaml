@@ -1,0 +1,13 @@
+gazebo_ros_control/pid_gains:
+  rightarm_shoulder_pan_joint:
+    p: 5000
+  rightarm_shoulder_lift_joint:
+    p: 5000
+  rightarm_elbow_joint:
+    p: 5000
+  rightarm_wrist_1_joint:
+    p: 5000
+  rightarm_wrist_2_joint:
+    p: 5000
+  rightarm_wrist_3_joint:
+    p: 5000

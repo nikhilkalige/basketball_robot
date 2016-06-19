@@ -30,7 +30,11 @@
   <rosparam command="load" file="$(find bbbot_gazebo)/config/leftarm_joint_names.yaml" ns="leftarm" />
   <rosparam command="load" file="$(find bbbot_gazebo)/config/rightarm_joint_names.yaml" ns="rightarm" />
 
+
   <group if="$(arg use_sim)">
+    <!-- <rosparam command="load" file="$(find bbbot_gazebo)/config/leftarm_gazebo_control.yaml" ns="leftarm" />
+    <rosparam command="load" file="$(find bbbot_gazebo)/config/rightarm_gazebo_control.yaml" ns="rightarm" /> -->
+
     <!-- Run a python script to the send a service call to gazebo_ros to spawn a URDF robot -->
     <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
   	  args="-urdf -model bbbot -param robot_description"/>
