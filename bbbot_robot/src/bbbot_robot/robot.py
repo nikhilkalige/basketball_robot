@@ -65,7 +65,7 @@ class Robot:
         if increment == 0.0:
             return
 
-        arm.logmsg("Generated angle values")
+        arm.loginfo("Generated angle values")
         pts = self.generate_points(current_angles, index, end_point, increment)
 
         for pt in pts:
