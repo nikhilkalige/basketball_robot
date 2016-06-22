@@ -32,9 +32,9 @@ class Robot:
                        'rightarm_wrist_1_joint', 'rightarm_wrist_2_joint', 'rightarm_wrist_3_joint'
                        ]
 
-    def __init__(self, use_prefix=False, sim=False, single_arm=False, pos_controller=True, display=False):
+    def __init__(self, use_prefix=False, sim=False, single_arm=False, pos_controller=True, display=False, collision=True):
         self.sim = sim
-        self.collsion_service = False
+        self.collsion_srv = collision
         self.single_arm = single_arm
         # Show trajectory on rviz
         self.display = display
@@ -50,6 +50,8 @@ class Robot:
                                             DisplayTrajectory, queue_size=10)
 
     def control_torque(self, enable=True):
+        if self.sim:
+            return True
         if not self.left.control_torque(enable):
             return False
         if not self.single_arm:
@@ -188,6 +190,9 @@ class Robot:
             rate.sleep()
 
     def check_collision(self):
+        if not self.collsion_srv:
+            return False
+
         # Create a new trajectory by combining both the trajectories, assumption is that the timing is same
         # The order of joining should be [left + right]
         traj = JointTrajectory()
