@@ -14,6 +14,7 @@
         <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
         <geometry>
           <mesh filename="package://bbbot_description/meshes/visual/stand.stl" />
+          <!-- <mesh filename="package://bbbot_description/meshes/visual/stand_low.stl" /> -->
         </geometry>
         <material name="white"/>
       </visual>
