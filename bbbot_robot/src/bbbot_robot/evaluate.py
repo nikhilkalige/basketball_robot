@@ -9,6 +9,8 @@ import time
 import rosbag
 from pydmps.dmp_discrete import DMPs_discrete
 from enum import IntEnum
+from configparser import ConfigParser
+import zmq
 
 
 '''
@@ -162,6 +164,12 @@ class Evaluate(object):
             return False
 
         return True
+
+    def get_dmp_points(self, params):
+        trajectory = []
+        for idx in range(4):
+            trajectory.append(self.generate_traj_points(idx, params))
+        return trajectory
 
     def constraint(self, params):
         """Return (valid, fitness)"""
@@ -407,8 +415,41 @@ class EvaluateHansen(Evaluate):
     MAX_VALID_REWARD = 600
 
     def __init__(self, *args, **kwargs):
+        cfg = ConfigParser()
+        cfg.read('config/config.cfg')
+
+        self.plot = False
+
+        if kwargs.get('plot', False):
+            self.plot = True
+            self.init_zmq(cfg.get('zmq', 'port'))
+
         self.run_count = 0
         super(EvaluateHansen, self).__init__(*args, **kwargs)
+
+    def init_zmq(self, port):
+        context = zmq.Context()
+        self.socket = context.socket(zmq.PAIR)
+        self.socket.connect("tcp://localhost:%s" % port)
+
+    def send_msg(self, iteration, params, fitness):
+        """ Params = list, fitness = float """
+        dmp = self.get_dmp_points(params)
+        dmp = np.array(dmp)
+        md = dict(
+            params_dtype=str(params.dtype),
+            params_shape=params.shape,
+            fitness=fitness,
+            iteration=iteration,
+            dmp_dtype=str(dmp.dtype),
+            dmp_shape=dmp.shape,
+        )
+        try:
+            self.socket.send_json(md, zmq.SNDMORE)
+            self.socket.send(params, zmq.SNDMORE)
+            self.socket.send(dmp)
+        except:
+            pass
 
     def scale(self, val, src, dst):
         """
