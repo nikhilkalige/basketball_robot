@@ -9,6 +9,8 @@ from bbbot_robot.dropdown import create_toolbar, create_multi_selector, \
     get_dropdown_value, get_multiselector_value
 import time
 from pandas import DataFrame
+import pickle
+import os
 
 
 class PIdx(IntEnum):
@@ -40,7 +42,8 @@ class Plotter(object):
     TIME_NAMES = ["ELBOW TIME", "WRIST TIME"]
     POP_SIZE = 15
 
-    def __init__(self):
+    def __init__(self, dump_location, pickle_file=""):
+        self.dump_location = dump_location
         self.init_data_structure()
         self.cfg = ConfigParser()
         self.cfg.read("./config/config.cfg")
@@ -48,7 +51,12 @@ class Plotter(object):
         self.button_value = "elbow_delay"
         self.button_value = "angles"
         self.multi_value = ["", ""]
-        self.data_updated = False
+        if pickle_file:
+            with open(pickle_file, 'r') as f:
+                self.data = pickle.load(f)
+            self.data_updated = True
+        else:
+            self.data_updated = False
 
     @property
     def plot_changed(self):
@@ -95,6 +103,9 @@ class Plotter(object):
             self.data["start_wri"].append(params[PIdx.STR_WRI])
             self.data["end_wri"].append(params[PIdx.END_WRI])
             self.data["dmp"].append(dmps)
+
+            with open(os.path.join(self.dump_location, "data.pkl"), 'wb') as f:
+                pickle.dump(self.data, f)
             self.data_updated = True
         except Exception as e:
             print("Mssg read exception: {}".format(e))
