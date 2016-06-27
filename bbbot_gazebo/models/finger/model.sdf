@@ -1,0 +1,27 @@
+<?xml version="1.0" ?>
+<sdf version="1.5">
+  <model name="basketball">
+    <link name="finger_link">
+      <visual>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <mesh><uri>model://meshes/visual/finger.stl</uri></mesh>
+        </geometry>
+        <material name="white"/>
+      </visual>
+
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 ${pi/2}"/>
+        <geometry>
+           <mesh><uri>model://meshes/collision/finger.stl</uri></mesh>
+        </geometry>
+      </collision>
+
+      <inertial>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <mass value="0.250"/>
+        <inertia ixx="0.0" ixy="0.0" ixz="0.0" iyy="0.0" iyz="0.0" izz="0.0"/>
+      </inertial>
+    </link>
+  </xacro:macro>
+</robot>
