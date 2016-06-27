@@ -22,5 +22,6 @@
   <run_depend>xacro</run_depend>
 
   <export>
+    <gazebo_ros gazebo_model_path="${prefix}" />
   </export>
 </package>
