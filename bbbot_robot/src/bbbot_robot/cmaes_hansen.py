@@ -48,6 +48,8 @@ def hans_run_cmaes(es, eval_function, pkl_location, log_iters=1):
         #     except:
         #         pass
         pickle.dump(es, open(os.path.join(pkl_location, 'cma_{:05d}.pkl'.format(es.countiter)), 'wb'))
+        data = dict(population=X, fitness=fit)
+        pickle.dump(data, open(os.path.join(pkl_location, 'cma_pop{:05d}.pkl'.format(es.countiter)), 'wb'))
 
     print('Terminated on ' + str(es.stop()))
     pickle.dump(es, open(os.path.join(pkl_location, 'cma_final.pkl'), 'wb'))
