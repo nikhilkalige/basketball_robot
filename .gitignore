@@ -1,3 +1,4 @@
 .idea
 *.dat
 *.pyc
+bbbot_robot/scripts/*
