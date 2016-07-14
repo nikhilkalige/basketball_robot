@@ -9,11 +9,13 @@
     <include>
       <uri>model://ground_plane</uri>
     </include>
+    <!--
+      We do not the cylinder as we are not picking up the ball
     <include>
       <uri>model://models/cylinder</uri>
       <static>1</static>
       <pose frame=''>0.165 0 0.4 0 0 0</pose>
-    </include>
+    </include> -->
     <include>
       <uri>model://models/ball</uri>
       <pose frame=''>0.165 0 0.94 0 0 0</pose>
