@@ -24,6 +24,7 @@
           <sphere>
             <!-- <radius>0.1172</radius> -->
             <radius>0.13</radius>
+            <!-- <radius>0.14</radius> -->
           </sphere>
         </geometry>
       </visual>
@@ -32,28 +33,41 @@
           <sphere>
             <!-- <radius>0.1172</radius> -->
             <radius>0.13</radius>
+            <!-- <radius>0.14</radius> -->
           </sphere>
         </geometry>
         <surface>
+<!--           <contact>
+            <collide_without_contact>0</collide_without_contact>
+            <ode>
+              <soft_cfm>1</soft_cfm>
+              <soft_erp>0.2</soft_erp>
+              <kp>20000</kp>
+              <kd>0.1</kd>
+            </ode>
+          </contact> -->
+          <friction>
+            <ode><!--
+              <mu>.45</mu>
+              <mu2>.45</mu2> -->
+              <mu>1e15</mu>
+              <mu2>1e15</mu2>
+            </ode>
+          </friction>
+          <bounce>
+            <restitution_coefficient>0.01</restitution_coefficient>
+            <threshold>0.01</threshold>
+          </bounce>
           <contact>
-            <collide_without_contact>1</collide_without_contact>
+            <ode>
+              <kp>1e9</kp>
+              <kd>1</kd>
+              <max_vel>0.1</max_vel>
+              <min_depth>0.0001</min_depth>
+            </ode>
           </contact>
         </surface>
       </collision>
-      <sensor name="mud_contact" type="contact">
-        <always_on>true</always_on>
-        <update_rate>1000</update_rate>
-        <contact>
-          <collision>collision</collision>
-        </contact>
-      </sensor>
     </link>
-    <plugin name="gazebo_mud" filename="libMudPlugin.so">
-      <contact_sensor_name>ball/mud_contact</contact_sensor_name>
-      <stiffness>0.0</stiffness>
-      <damping>1.0</damping>
-      <link_name>bbbot::leftarm_finger_link</link_name>
-      <link_name>bbbot::rightarm_finger_link</link_name>
-    </plugin>
   </model>
 </sdf>
