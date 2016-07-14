@@ -1,7 +1,18 @@
-gazebo_ros_control/pid_gains:
-    leftarm_shoulder_pan_joint: {p: 5000}
-    leftarm_shoulder_lift_joint: {p: 5000}
-    leftarm_elbow_joint: {p: 5000}
-    leftarm_wrist_1_joint: {p: 5000}
-    leftarm_wrist_2_joint: {p: 5000}
-    leftarm_wrist_3_joint: {p: 5000}
+position_joint_trajectory_controller:
+  type: effort_controllers/JointTrajectoryController
+  joints:
+     - leftarm_shoulder_pan_joint
+     - leftarm_shoulder_lift_joint
+     - leftarm_elbow_joint
+     - leftarm_wrist_1_joint
+     - leftarm_wrist_2_joint
+     - leftarm_wrist_3_joint
+  constraints:
+      stopped_velocity_tolerance: 1000
+  gains:
+    leftarm_shoulder_pan_joint: {p: 400.0, i: 0.01, d: 10.0}
+    leftarm_shoulder_lift_joint: {p: 600.0, i: 0.01, d: 10.0}
+    leftarm_elbow_joint: {p: 400.0, i: 0.01, d: 10.0}
+    leftarm_wrist_1_joint: {p: 800.0, i: 0.01, d: 0.1}
+    leftarm_wrist_2_joint: {p: 500.0, i: 0.01, d: 0.1}
+    leftarm_wrist_3_joint: {p: 500.0, i: 0.01, d: 0.1}
