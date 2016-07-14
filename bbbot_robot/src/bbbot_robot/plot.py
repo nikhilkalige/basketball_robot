@@ -1,4 +1,4 @@
-from ConfigParser import ConfigParser
+from ConfigParser import SafeConfigParser
 import zmq
 import numpy as np
 import matplotlib
@@ -11,6 +11,10 @@ import time
 from pandas import DataFrame
 import pickle
 import os
+
+
+basepath = os.path.dirname(__file__)
+cfg_path = os.path.abspath(os.path.join(basepath, "./config/config.cfg"))
 
 
 class PIdx(IntEnum):
@@ -45,11 +49,13 @@ class Plotter(object):
     def __init__(self, dump_location, pickle_file=""):
         self.dump_location = dump_location
         self.init_data_structure()
-        self.cfg = ConfigParser()
-        self.cfg.read("./config/config.cfg")
+        self.cfg = SafeConfigParser()
+
+        self.cfg.read(cfg_path)
         self.current_plot = ""
         self.button_value = "elbow_delay"
         self.button_value = "angles"
+        self.button_value = "elb_dmp"
         self.multi_value = ["", ""]
         if pickle_file:
             with open(pickle_file, 'r') as f:
@@ -66,7 +72,7 @@ class Plotter(object):
         port = self.cfg.get('zmq', 'port')
         context = zmq.Context()
         self.socket = context.socket(zmq.PAIR)
-        self.socket.bind("tcp://localhost:%s" % port)
+        self.socket.bind("tcp://127.0.0.1:%s" % port)
 
     def init_data_structure(self):
         self.data = dict(
@@ -79,12 +85,16 @@ class Plotter(object):
             end_elb=[],
             start_wri=[],
             end_wri=[],
-            dmp=[]
+            dmps=[],
+            fitness=[]
         )
 
     def recv_msg(self):
         try:
-            md = self.socket.recv_json()
+            md = self.socket.recv_json(flags=zmq.NOBLOCK)
+        except Exception as e:
+            return
+        try:
             params = self.socket.recv()
             dmps = self.socket.recv()
 
@@ -102,7 +112,8 @@ class Plotter(object):
             self.data["end_elb"].append(params[PIdx.END_ELB])
             self.data["start_wri"].append(params[PIdx.STR_WRI])
             self.data["end_wri"].append(params[PIdx.END_WRI])
-            self.data["dmp"].append(dmps)
+            self.data["dmps"].append(dmps)
+            self.data["fitness"].append(md["fitness"])
 
             with open(os.path.join(self.dump_location, "data.pkl"), 'wb') as f:
                 pickle.dump(self.data, f)
@@ -147,6 +158,7 @@ class Plotter(object):
 
         a = self.axes[0]
         a.set_xticks(np.arange(start, step=self.POP_SIZE))
+        self.axes[1].cla()
         self.axes[1] = sns.distplot(
             self.data[self.button_value], ax=self.axes[1], rug=True, bins=10)
         self.data_updated = False
@@ -167,25 +179,29 @@ class Plotter(object):
             self.axes[0].set_ylabel("Joint Angle (radian)")
             self.current_plot = self.button_value
 
-        idx = ["lift_dmp", "elb_dmp", "wri_dmp"].index(self.button_value)
+        idx = ["lift_dmp", "elb_dmp", "wri_dmp"].index(self.button_value) + 1
         data = [arr[idx] for arr in self.data["dmps"]]
 
         self.axes[0] = sns.tsplot(data, ci=[68, 95], ax=self.axes[0])
+        # self.axes[0] = sns.tsplot(data, ci=[30, 60, 95], ax=self.axes[0])
+        # self.axes[0] = sns.tsplot(data, err_style="ci_bars", ax=self.axes[0])
         sns.tsplot(data, err_style="unit_traces", ax=self.axes[1])
 
         # Plot the last population data in different color
         # Get data from the current population
         length = len(data)
         idx = (length // self.POP_SIZE) * self.POP_SIZE
+        if length == idx:
+            idx = length - self.POP_SIZE
+
         x_data = np.arange(data[0].shape[0])
         for line in data[idx:]:
-            self.axes[1].plot(x_data, line, c=self.LINE_COLOR, ls="--")
+            self.axes[1].plot(x_data, line, c=self.LINE_COLOR, ls="--", linewidth=0.8)
         self.data_updated = False
 
     def angles_plot(self, new=False):
-        if not new and not self.plot_changed:
-            if not self.data_updated:
-                return
+        if not new and not self.plot_changed and not self.data_updated:
+            return
         else:
             plt.close(self.fig)
             self.axes = []
@@ -203,6 +219,8 @@ class Plotter(object):
         # Get data from the current population
         length = len(d_frame)
         idx = (length // self.POP_SIZE) * self.POP_SIZE
+        if length == idx:
+            idx = length - self.POP_SIZE
 
         plt.sca(g.ax_joint)
         plt.scatter(x=d_frame[self.multi_value[0]][idx:].tolist(),
@@ -238,6 +256,7 @@ class Plotter(object):
             plt.draw()
             plt.pause(0.001)
             time.sleep(delay)
+            self.recv_msg()
 
 
 if __name__ == "__main__":
