@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<!-- Revolute-Revolute Manipulator -->
+<robot name="bbbot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- manipulator_h arm-->
+  <xacro:include filename="$(find manipulator_description)/urdf/manipulator_h.xacro" />
+  <!-- stand -->
+  <xacro:include filename="$(find bbbot_description)/urdf/stand.xacro" />
+  <!-- fingers -->
+  <xacro:include filename="$(find bbbot_description)/urdf/fingers.xacro" />
+
+
+  <link name="world" />
+  <link name="base_link"/>
+  <xacro:stand prefix="" parent="base_link">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </xacro:stand>
+
+  <xacro:include filename="$(find manipulator_description)/urdf/common.xacro" />
+  <xacro:manipulator_arm_gazebo prefix="leftarm" />
+  <xacro:manipulator_arm_gazebo prefix="rightarm" />
+
+  <!-- One of the values should be 226 mm -->
+  <!-- Left arm -->
+  <xacro:manipulator_h_arm prefix="leftarm" joint_limited="false" parent="world" dummy_ee_link="true">
+    <origin xyz="0.045 0.1665 1.526" rpy="${-pi/2} ${-pi/2} 0" />
+  </xacro:manipulator_h_arm>
+
+  <xacro:fingers prefix="leftarm" parent="leftarm_ee_link">
+    <origin xyz="0 0 0" rpy="0 0 ${pi/2}" />
+  </xacro:fingers>
+
+  <!-- Right arm -->
+  <xacro:manipulator_h_arm prefix="rightarm" joint_limited="false" parent="world" dummy_ee_link="true">
+    <origin xyz="0.045 -0.1665 1.526" rpy="${pi/2} ${-pi/2} 0" />
+  </xacro:manipulator_h_arm>
+
+  <xacro:fingers prefix="rightarm" parent="rightarm_ee_link">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </xacro:fingers>
+
+  <joint name="world_stand" type="fixed">
+    <parent link="world" />
+    <child link ="base_link" />
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </joint>
+</robot>
