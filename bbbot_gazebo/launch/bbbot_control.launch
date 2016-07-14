@@ -32,9 +32,9 @@
   <!-- Left arm controllers -->
   <group ns="leftarm">
     <rosparam file="$(find bbbot_gazebo)/config/common_control.yaml" command="load" />
-    <rosparam file="$(find bbbot_gazebo)/config/leftarm_control.yaml" command="load" />
 
     <group if="$(arg use_sim)">
+      <rosparam file="$(find bbbot_gazebo)/config/leftarm_control.yaml" command="load" />
       <param name="robot_description"
         command="$(find xacro)/xacro.py '$(find bbbot_description)/urdf/bbbot.xacro'" />
 
@@ -43,6 +43,9 @@
         output="screen" />
     </group>
 
+    <group unless="$(arg use_sim)">
+      <rosparam file="$(find bbbot_gazebo)/config/leftarm_gazebo_control.yaml" command="load" />
+    </group>
     <!-- <group if="$(arg start_eff_velocity)">
       <node name="larm_velocity" pkg="manipulator_velocity" type="twist.py" output="screen" />
     </group> -->
@@ -64,15 +67,19 @@
   <!-- Right arm controllers -->
   <group ns="rightarm">
     <rosparam file="$(find bbbot_gazebo)/config/common_control.yaml" command="load" />
-    <rosparam file="$(find bbbot_gazebo)/config/rightarm_control.yaml" command="load" />
 
     <group if="$(arg use_sim)">
+      <rosparam file="$(find bbbot_gazebo)/config/rightarm_control.yaml" command="load" />
       <param name="robot_description"
         command="$(find xacro)/xacro.py '$(find bbbot_description)/urdf/bbbot.xacro'" />
 
       <!-- Load hardware interface -->
       <node name="manipulator_hardware_interface" pkg="manipulator_driver" type="manipulator_driver"
         output="screen" />
+    </group>
+
+    <group unless="$(arg use_sim)">
+      <rosparam file="$(find bbbot_gazebo)/config/rightarm_gazebo_control.yaml" command="load" />
     </group>
 
     <node name="joint_state_controller_spawner" pkg="controller_manager" type="controller_manager"
