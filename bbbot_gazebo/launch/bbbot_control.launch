@@ -16,7 +16,7 @@
     <param name="tf_prefix" type="string" value="" />
   </node>
 
-  <group if="$(arg use_sim)">
+  <group unless="$(arg use_sim)">
     <!-- Fake Calibration -->
     <node pkg="rostopic" type="rostopic" name="fake_joint_calibration"
           args="pub /calibrated std_msgs/Bool true" />
@@ -33,7 +33,7 @@
   <group ns="leftarm">
     <rosparam file="$(find bbbot_gazebo)/config/common_control.yaml" command="load" />
 
-    <group if="$(arg use_sim)">
+    <group unless="$(arg use_sim)">
       <rosparam file="$(find bbbot_gazebo)/config/leftarm_control.yaml" command="load" />
       <param name="robot_description"
         command="$(find xacro)/xacro.py '$(find bbbot_description)/urdf/bbbot.xacro'" />
@@ -43,7 +43,7 @@
         output="screen" />
     </group>
 
-    <group unless="$(arg use_sim)">
+    <group if="$(arg use_sim)">
       <rosparam file="$(find bbbot_gazebo)/config/leftarm_gazebo_control.yaml" command="load" />
     </group>
     <!-- <group if="$(arg start_eff_velocity)">
@@ -68,7 +68,7 @@
   <group ns="rightarm">
     <rosparam file="$(find bbbot_gazebo)/config/common_control.yaml" command="load" />
 
-    <group if="$(arg use_sim)">
+    <group unless="$(arg use_sim)">
       <rosparam file="$(find bbbot_gazebo)/config/rightarm_control.yaml" command="load" />
       <param name="robot_description"
         command="$(find xacro)/xacro.py '$(find bbbot_description)/urdf/bbbot.xacro'" />
@@ -78,7 +78,7 @@
         output="screen" />
     </group>
 
-    <group unless="$(arg use_sim)">
+    <group if="$(arg use_sim)">
       <rosparam file="$(find bbbot_gazebo)/config/rightarm_gazebo_control.yaml" command="load" />
     </group>
 
