@@ -6,10 +6,10 @@
     <joint name="${parent}_${prefix}_base_joint" type="fixed">
       <xacro:insert_block name="origin" />
       <parent link="${parent}" />
-      <child link="${prefix}finger_link" />
+      <child link="${prefix}_finger_link" />
     </joint>
 
-    <link name="${prefix}finger_link">
+    <link name="${prefix}_finger_link">
       <visual>
         <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
         <geometry>
@@ -19,7 +19,7 @@
       </visual>
       <!-- Need better collision model -->
       <collision>
-        <origin xyz="0 0 0" rpy="0 0 ${pi/2}"/>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 ${pi/2}"/>
         <geometry>
           <mesh filename="package://bbbot_description/meshes/collision/finger.stl" />
         </geometry>
