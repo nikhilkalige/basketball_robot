@@ -10,6 +10,7 @@ import time
 from pandas import DataFrame
 import pickle
 from bbbot_robot.config_reader import conf
+import os
 
 
 class PIdx(IntEnum):
@@ -32,7 +33,7 @@ def chunks(l, n):
 
 class Plotter(object):
     BUTTONS = ["elbow_delay", "wrist_delay",
-               "angles", "lift_dmp", "elb_dmp", "wri_dmp"]
+               "angles", "lift_dmp", "elb_dmp", "wri_dmp", "fitness"]
     MULTI_BUTTONS = ["start_pan", "start_lift", "end_lift",
                      "start_elb", "end_elb", "start_wri", "end_wri"]
     TIME_COLORS = [sns.color_palette()[0], sns.color_palette()[1]]
@@ -127,9 +128,8 @@ class Plotter(object):
         create_multi_selector(self.fig, self.MULTI_BUTTONS, self.multi_value)
 
     def time_plot(self):
-        if not self.plot_changed:
-            if not self.data_updated:
-                return
+        if not self.plot_changed and not self.data_updated:
+            return
         else:
             plt.close(self.fig)
             self.create_figure()
@@ -157,10 +157,34 @@ class Plotter(object):
             self.data[self.button_value], ax=self.axes[1], rug=True, bins=10)
         self.data_updated = False
 
+    def fitness_plot(self):
+        if not self.plot_changed and not self.data_updated:
+            return
+        else:
+            plt.close(self.fig)
+            self.create_figure()
+            plt.clf()
+            self.axes = []
+            self.axes.append(self.fig.add_subplot(111))
+            self.fig.suptitle("Fitness Plot")
+            self.axes[0].set_xlabel(
+                "Population - {} per generation".format(self.POP_SIZE))
+            self.axes[0].set_ylabel("Fitness")
+            self.current_plot = self.button_value
+
+        data = chunks(self.data["fitness"], self.POP_SIZE)
+        start = 0
+        for idx in xrange(len(data)):
+            self.axes[0].scatter(np.arange(start, start + len(data[idx])), data[idx],
+                                 color=self.TIME_COLORS[idx % 2])
+            start = start + len(data[idx])
+
+        a = self.axes[0]
+        a.set_xticks(np.arange(start, step=self.POP_SIZE))
+
     def dmp_plot(self):
-        if not self.plot_changed:
-            if not self.data_updated:
-                return
+        if not self.plot_changed and not self.data_updated:
+            return
         else:
             plt.close(self.fig)
             self.create_figure()
@@ -244,6 +268,8 @@ class Plotter(object):
                         self.angles_plot(True)
                 if self.button_value in ["lift_dmp", "elb_dmp", "wri_dmp"]:
                     self.dmp_plot()
+                if self.button_value in ["fitness"]:
+                    self.fitness_plot()
             except Exception as e:
                 print("Exception: ", e)
                 # print "exception", self.button_value
