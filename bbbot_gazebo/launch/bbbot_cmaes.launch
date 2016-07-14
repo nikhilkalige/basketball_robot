@@ -5,6 +5,7 @@
 
   <!-- By default, we are not in debug mode -->
   <arg name="debug" default="false" />
+  <arg name="rviz" default="true" />
 
 
   <include file="$(find bbbot_moveit)/launch/move_group.launch">
@@ -14,10 +15,12 @@
     <arg name="debug" value="$(arg debug)"/>
   </include>
 
-  <include file="$(find bbbot_moveit)/launch/moveit_rviz.launch">
-    <arg name="config" value="true"/>
-    <arg name="debug" value="false"/>
-  </include>
+  <group if="$(arg rviz)">
+      <include file="$(find bbbot_moveit)/launch/moveit_rviz.launch">
+      <arg name="config" value="true"/>
+      <arg name="debug" value="false"/>
+    </include>
+  </group>
 
   <node name="bbbot_collision" pkg="bbbot_collision" type="bbbot_collision" output="screen" />
 
