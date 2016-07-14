@@ -1,5 +1,6 @@
 from __future__ import print_function
 from bbbot_robot.robot import Robot
+from bbbot_robot.config_reader import conf
 import numpy as np
 import rospy
 import sys
@@ -10,7 +11,6 @@ import time
 import rosbag
 from pydmps.dmp_discrete import DMPs_discrete
 from enum import IntEnum
-from configparser import ConfigParser
 import zmq
 from sympy import Point3D, Line3D, N
 from gazebo_msgs.srv import SetModelStateRequest, SetModelState
@@ -453,15 +453,12 @@ class EvaluateHansen(Evaluate):
     MAX_VALID_REWARD = 600
 
     def __init__(self, *args, **kwargs):
-        cfg = ConfigParser()
-        cfg.read('config/config.cfg')
-
         self.plot = False
 
         if kwargs.get('plot', False):
             print("Logging true")
             self.plot = True
-            self.init_zmq(cfg.get('zmq', 'port'))
+            self.init_zmq(conf.get('zmq', 'port'))
 
         self.run_count = 0
         super(EvaluateHansen, self).__init__(*args, **kwargs)

@@ -1,4 +1,3 @@
-from ConfigParser import SafeConfigParser
 import zmq
 import numpy as np
 import matplotlib
@@ -10,11 +9,7 @@ from bbbot_robot.dropdown import create_toolbar, create_multi_selector, \
 import time
 from pandas import DataFrame
 import pickle
-import os
-
-
-basepath = os.path.dirname(__file__)
-cfg_path = os.path.abspath(os.path.join(basepath, "./config/config.cfg"))
+from bbbot_robot.config_reader import conf
 
 
 class PIdx(IntEnum):
@@ -49,9 +44,8 @@ class Plotter(object):
     def __init__(self, dump_location, pickle_file=""):
         self.dump_location = dump_location
         self.init_data_structure()
-        self.cfg = SafeConfigParser()
+        self.cfg = conf
 
-        self.cfg.read(cfg_path)
         self.current_plot = ""
         self.button_value = "elbow_delay"
         self.button_value = "angles"
