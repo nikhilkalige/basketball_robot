@@ -4,13 +4,16 @@ import numpy as np
 import rospy
 import sys
 from bbbot_robot.robot import JointNames as JN
-from bbbot_robot.tracking import Tracker
+#from bbbot_robot.tracking import Tracker
+from bbbot_robot.ball_tracker import BallTracker
 import time
 import rosbag
 from pydmps.dmp_discrete import DMPs_discrete
 from enum import IntEnum
 from configparser import ConfigParser
 import zmq
+from sympy import Point3D, Line3D, N
+from gazebo_msgs.srv import SetModelStateRequest, SetModelState
 
 
 '''
@@ -83,9 +86,15 @@ class Evaluate(object):
 
     PICKUP_POS = [2.9390760359372385, 1.217528331414226, -0.17592668464016736, 0, 1.2410842115944702]
 
-    def __init__(self, dmp_count, bag_file):
-        self.robot = Robot(use_prefix=True, display=True)
-        self.track = Tracker()
+    def __init__(self, dmp_count, bag_file, gazebo=False, **kwargs):
+        self.gazebo = gazebo
+        if self.gazebo:
+            self.robot = Robot(use_prefix=True, display=False, sim=True, collision=True)
+            self.track = BallTracker()
+        else:
+            self.robot = Robot(use_prefix=True, display=True)
+            self.track = Tracker()
+
         self.init_dmp(dmp_count, bag_file)
         self.robot.control_torque()
         self.arm_state = ArmState.DMP
@@ -214,6 +223,8 @@ class Evaluate(object):
         return True
 
     def visualize(self):
+        if self.gazebo:
+            return tuple()
         raw_input('Enter to start rviz visualization: ')
         self.robot.visualize_trajectory(False)
         ans = raw_input('Was the gazebo movement valid: ')
@@ -227,19 +238,33 @@ class Evaluate(object):
         if collision:
             return self.COLLISION_REWARD
 
-        raw_input('Enter to start robot movement: ')
+        if not self.gazebo:
+            raw_input('Enter to start robot movement: ')
 
+        if self.gazebo:
+            time.sleep(1)
         self.track.start()
-        self.robot.start_trajectory(2)
-        self.robot.wait_completion()
-        # Needs some delay before we get the reward
-        time.sleep(4)
-        self.track.stop()
+        start_delay = 0.1 if self.gazebo else 2
 
+        self.robot.start_trajectory(start_delay)
+        self.robot.wait_completion()
+
+        # Needs some delay before we get the reward
+        if self.gazebo:
+            time.sleep(2)
+        else:
+            time.sleep(4)
+
+        self.track.stop()
         reward = self.track.get_reward()
+
         rospy.loginfo("Got reward: {}".format(reward))
 
-        ans = raw_input('Is the reward valid: ')
+        if self.gazebo:
+            ans = 'y'
+        else:
+            ans = raw_input('Is the reward valid: ')
+
         if 'n' in ans:
             while True:
                 ans = raw_input('Enter new reward: ')
@@ -321,40 +346,47 @@ class Evaluate(object):
         return points
 
     def move_to_initial_position(self, params):
+        if self.gazebo:
+            start_delay = 0.1
+            interpolate_delay = 0.03
+        else:
+            start_delay = 1
+            interpolate_delay = 0.15
+
         if self.arm_state == ArmState.DMP:
             rospy.loginfo("-----------------------Initial Position-----------------------")
             points = [2.5, 0.75, -0.4, 0, 0, 1.58]
-            self.robot.interpolate('left', points)
+            self.robot.interpolate('left', points, delay=interpolate_delay)
             points = [-2.5, 0.75, -0.4, 0, 0, 3.14]
-            self.robot.interpolate('right', points)
+            self.robot.interpolate('right', points, delay=interpolate_delay)
 
             self.robot.visualize_trajectory(False)
             if not self.handle_input('Running move to initial position: '):
                 return False
 
-            self.robot.start_trajectory(delay=1)
+            self.robot.start_trajectory(delay=start_delay)
             self.robot.wait_completion()
 
             rospy.loginfo("-----------------------Ball Pickup-----------------------")
             lpoints = self.PICKUP_POS + [1.58]
-            self.robot.interpolate('left', lpoints, skip_joints=[JN.SHOULDER_LIFT])
+            self.robot.interpolate('left', lpoints, skip_joints=[JN.SHOULDER_LIFT], delay=interpolate_delay)
 
             rpoints = lpoints[:]
             rpoints[0] *= -1
             rpoints[5] = 3.14
-            self.robot.interpolate('right', rpoints, skip_joints=[JN.SHOULDER_LIFT])
+            self.robot.interpolate('right', rpoints, skip_joints=[JN.SHOULDER_LIFT], delay=interpolate_delay)
 
             self.robot.visualize_trajectory(False)
             if not self.handle_input('Picking up the ball: '):
                 return False
 
-            self.robot.start_trajectory(delay=1)
+            self.robot.start_trajectory(delay=start_delay)
             self.robot.wait_completion()
 
-            self.robot.interpolate('left', lpoints)
-            self.robot.interpolate('right', rpoints)
+            self.robot.interpolate('left', lpoints, delay=interpolate_delay)
+            self.robot.interpolate('right', rpoints, delay=interpolate_delay)
 
-            self.robot.start_trajectory(delay=1)
+            self.robot.start_trajectory(delay=start_delay)
             self.robot.wait_completion()
 
             self.arm_state = ArmState.INITIAL
@@ -366,12 +398,12 @@ class Evaluate(object):
         rospy.loginfo('Generated DMP point: ')
         self.robot.print_numpy_array(lpoints)
 
-        self.robot.interpolate('left', lpoints)
+        self.robot.interpolate('left', lpoints, delay=interpolate_delay)
 
         rpoints = lpoints[:]
         rpoints[0] *= -1
         rpoints[5] = 3.14
-        self.robot.interpolate('right', rpoints)
+        self.robot.interpolate('right', rpoints, delay=interpolate_delay)
 
         self.robot.visualize_trajectory(False)
         if not self.handle_input('Running move to initial dmp position: '):
@@ -381,12 +413,18 @@ class Evaluate(object):
         if collision:
             return False
 
-        self.robot.start_trajectory(delay=1)
+        self.robot.start_trajectory(delay=start_delay)
         self.robot.wait_completion()
         self.arm_state = ArmState.DMP
+
+        if self.gazebo:
+            if not self.spawn_ball(lpoints, rpoints):
+                return False
         return True
 
     def handle_input(self, out):
+        if self.gazebo:
+            return True
         print(out)
         exit = False
         while not exit:
@@ -421,6 +459,7 @@ class EvaluateHansen(Evaluate):
         self.plot = False
 
         if kwargs.get('plot', False):
+            print("Logging true")
             self.plot = True
             self.init_zmq(cfg.get('zmq', 'port'))
 
@@ -430,11 +469,12 @@ class EvaluateHansen(Evaluate):
     def init_zmq(self, port):
         context = zmq.Context()
         self.socket = context.socket(zmq.PAIR)
-        self.socket.connect("tcp://localhost:%s" % port)
+        self.socket.connect("tcp://127.0.0.1:%s" % port)
 
     def send_msg(self, iteration, params, fitness):
         """ Params = list, fitness = float """
         dmp = self.get_dmp_points(params)
+        params = np.array(params)
         dmp = np.array(dmp)
         md = dict(
             params_dtype=str(params.dtype),
@@ -451,27 +491,29 @@ class EvaluateHansen(Evaluate):
         except:
             pass
 
-    def scale(self, val, src, dst):
+    @staticmethod
+    def scale(val, src, dst):
         """
         Scale the given value from the scale of src to the scale of dst.
         """
         return ((val - src[0]) / (src[1] - src[0])) * (dst[1] - dst[0]) + dst[0]
 
-    def scale_params(self, params):
+    @classmethod
+    def scale_params(cls, params):
         in_range = [0, 10]
         scaled_params = [0] * len(params)
-        scaled_params[0] = self.scale(params[0], in_range, [0, self.OVERALL_TIME])
-        scaled_params[1] = self.scale(params[1], in_range, [0, self.OVERALL_TIME])
-        scaled_params[2] = self.scale(params[2], in_range, self.PAN_RESTRICT)
-        scaled_params[3] = self.scale(params[3], in_range, self.LIFT_RESTRICT)
-        scaled_params[4] = self.scale(params[4], in_range, self.LIFT_RESTRICT)
-        scaled_params[5] = self.scale(params[5], in_range, self.ELBOW_RESTRICT)
-        scaled_params[6] = self.scale(params[6], in_range, self.ELBOW_RESTRICT)
-        scaled_params[7] = self.scale(params[7], in_range, self.WRIST_RESTRICT)
-        scaled_params[8] = self.scale(params[8], in_range, self.WRIST_RESTRICT)
+        scaled_params[0] = cls.scale(params[0], in_range, [0, cls.OVERALL_TIME])
+        scaled_params[1] = cls.scale(params[1], in_range, [0, cls.OVERALL_TIME])
+        scaled_params[2] = cls.scale(params[2], in_range, cls.PAN_RESTRICT)
+        scaled_params[3] = cls.scale(params[3], in_range, cls.LIFT_RESTRICT)
+        scaled_params[4] = cls.scale(params[4], in_range, cls.LIFT_RESTRICT)
+        scaled_params[5] = cls.scale(params[5], in_range, cls.ELBOW_RESTRICT)
+        scaled_params[6] = cls.scale(params[6], in_range, cls.ELBOW_RESTRICT)
+        scaled_params[7] = cls.scale(params[7], in_range, cls.WRIST_RESTRICT)
+        scaled_params[8] = cls.scale(params[8], in_range, cls.WRIST_RESTRICT)
 
         for i in range(9, len(params)):
-            scaled_params[i] = self.scale(params[i], self.DMP_RANGE, self.DMP_RESTRICT)
+            scaled_params[i] = cls.scale(params[i], cls.DMP_RANGE, cls.DMP_RESTRICT)
         return scaled_params
 
     def get_initial_params(self):
@@ -490,6 +532,24 @@ class EvaluateHansen(Evaluate):
 
         for i in range(9, len(params)):
             scaled_params[i] = self.scale(params[i], self.DMP_RESTRICT, self.DMP_RANGE)
+        return scaled_params
+
+    @classmethod
+    def rescale_params(cls, params):
+        out_range = [0, 10]
+        scaled_params = [0] * len(params)
+        scaled_params[0] = cls.scale(params[0], [0, cls.OVERALL_TIME], out_range)
+        scaled_params[1] = cls.scale(params[1], [0, cls.OVERALL_TIME], out_range)
+        scaled_params[2] = cls.scale(params[2], cls.PAN_RESTRICT, out_range)
+        scaled_params[3] = cls.scale(params[3], cls.LIFT_RESTRICT, out_range)
+        scaled_params[4] = cls.scale(params[4], cls.LIFT_RESTRICT, out_range)
+        scaled_params[5] = cls.scale(params[5], cls.ELBOW_RESTRICT, out_range)
+        scaled_params[6] = cls.scale(params[6], cls.ELBOW_RESTRICT, out_range)
+        scaled_params[7] = cls.scale(params[7], cls.WRIST_RESTRICT, out_range)
+        scaled_params[8] = cls.scale(params[8], cls.WRIST_RESTRICT, out_range)
+
+        for i in range(9, len(params)):
+            scaled_params[i] = cls.scale(params[i], cls.DMP_RESTRICT, cls.DMP_RANGE)
         return scaled_params
 
     def check_feasible(self, params, f):
@@ -541,4 +601,56 @@ class EvaluateHansen(Evaluate):
             # A valid run
             reward = [self.MAX_VALID_REWARD - val]
         rospy.loginfo("Reward: {}".format(reward))
+        self.send_msg(0, scaled_params, reward)
         return reward
+
+
+class EvaluateGazebo(EvaluateHansen):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("gazebo", True)
+        super(EvaluateGazebo, self).__init__(*args, **kwargs)
+
+    @staticmethod
+    def pose_to_line(pose1, pose2):
+        p1 = Point3D(pose1.pose.position.x, pose1.pose.position.y, pose1.pose.position.z)
+        p2 = Point3D(pose2.pose.position.x, pose2.pose.position.y, pose2.pose.position.z)
+
+        return Line3D(p1, p2)
+
+    def get_spawn_position(self, left_angles, right_angles):
+        links = ['leftarm_wrist_3_link', 'leftarm_finger_link', 'rightarm_wrist_3_link', 'rightarm_finger_link']
+        resp = self.robot.get_fk_service(left_angles, right_angles, links)
+        if resp < 0:
+            print("Error", resp)
+            return -1
+
+        l1 = self.pose_to_line(resp.pose_stamped[0], resp.pose_stamped[1])
+        l2 = self.pose_to_line(resp.pose_stamped[2], resp.pose_stamped[3])
+        intersect_pt = l1.intersection(l2)
+        if intersect_pt:
+            return N(intersect_pt[0])
+            # print "-x {} -y {} -z {}".format(s[0], s[1], s[2])
+        else:
+            return None
+
+    def spawn_ball(self, left_angles, right_angles):
+        pos = self.get_spawn_position(left_angles, right_angles)
+        if not pos:
+            return False
+
+        msg = SetModelStateRequest()
+        msg.model_state.model_name = "basketball"
+        msg.model_state.pose.position.x = pos[0]
+        msg.model_state.pose.position.y = pos[1]
+        msg.model_state.pose.position.z = pos[2]
+
+        while True:
+            try:
+                model_service = rospy.ServiceProxy("/gazebo/set_model_state", SetModelState)
+                resp = model_service(msg)
+                if resp.success:
+                    break
+            except rospy.ServiceException as e:
+                rospy.logwarn("Exception on set model state service {}".format(e))
+
+        return True
