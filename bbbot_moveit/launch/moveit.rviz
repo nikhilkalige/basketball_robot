@@ -103,7 +103,7 @@ Visualization Manager:
             Show Axes: false
             Show Trail: false
             Value: true
-          leftarmfinger_link:
+          leftarm_finger_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
@@ -143,7 +143,7 @@ Visualization Manager:
             Show Axes: false
             Show Trail: false
             Value: true
-          rightarmfinger_link:
+          rightarm_finger_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
@@ -235,7 +235,7 @@ Visualization Manager:
             Show Axes: false
             Show Trail: false
             Value: true
-          leftarmfinger_link:
+          leftarm_finger_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
@@ -275,7 +275,7 @@ Visualization Manager:
             Show Axes: false
             Show Trail: false
             Value: true
-          rightarmfinger_link:
+          rightarm_finger_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
@@ -349,7 +349,7 @@ Visualization Manager:
             Show Axes: false
             Show Trail: false
             Value: true
-          leftarmfinger_link:
+          leftarm_finger_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
@@ -389,7 +389,7 @@ Visualization Manager:
             Show Axes: false
             Show Trail: false
             Value: true
-          rightarmfinger_link:
+          rightarm_finger_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
