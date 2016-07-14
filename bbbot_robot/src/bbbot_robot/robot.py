@@ -195,6 +195,7 @@ class Robot:
 
         # Create a new trajectory by combining both the trajectories, assumption is that the timing is same
         # The order of joining should be [left + right]
+        self.adjust_traj_length()
         traj = JointTrajectory()
         traj.joint_names = self.left._goal.trajectory.joint_names + self.right._goal.trajectory.joint_names
 
@@ -425,21 +426,28 @@ class Robot:
             rospy.loginfo("Waiting for trajectory animation {} seconds".format(duration))
             rospy.sleep(duration)
 
-    def get_dist_btw_effectors(self, left_angles, right_angles):
+    def get_fk_service(self, left_angles, right_angles, links):
         msg = GetPositionFKRequest()
         msg.header.frame_id = 'base_link'
-        msg.fk_link_names = ['leftarm_ee_link', 'rightarm_ee_link']
+        msg.fk_link_names = links
         msg.robot_state.joint_state.name = self.left.JOINT_NAMES + self.right.JOINT_NAMES
         msg.robot_state.joint_state.position = left_angles + right_angles
         try:
             fk_service = rospy.ServiceProxy("compute_fk", GetPositionFK)
             resp = fk_service(msg)
             if resp.error_code.val != 1:
+                print resp
                 return -1
         except rospy.ServiceException as e:
             rospy.logwarn("Exception on fk service {}".format(e))
             return -1
+        return resp
 
+    def get_dist_btw_effectors(self, left_angles, right_angles):
+        links = ['leftarm_ee_link', 'rightarm_ee_link']
+        resp = self.get_fk_service(left_angles, right_angles, links)
+        if resp < 0:
+            return -1
         l_pos = resp.pose_stamped[0].pose.position.y
         r_pos = resp.pose_stamped[1].pose.position.y
         dist = abs(l_pos - r_pos)
