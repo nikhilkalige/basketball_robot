@@ -282,17 +282,54 @@ class Plotter(object):
 
 
 if __name__ == "__main__":
-    p = Plotter()
+    import threading
+
+    def data_thread():
+        print("in thread")
+        context = zmq.Context()
+        socket = context.socket(zmq.PAIR)
+        socket.connect("tcp://127.0.0.1:%s" % conf.get('zmq', 'port'))
+
+        while True:
+            time.sleep(4)
+            dmp = np.random.uniform(0, 50, (3, 100))
+            delay = np.random.uniform(0, 0.6, 2)
+            angles = np.random.uniform(-3.14, 3.14, 7)
+            params = np.concatenate((delay, angles))
+            md = dict(
+                params_dtype=str(params.dtype),
+                params_shape=params.shape,
+                fitness=np.random.uniform(0, 1000, 1)[0],
+                iteration=0,
+                dmp_dtype=str(dmp.dtype),
+                dmp_shape=dmp.shape,
+            )
+            try:
+                socket.send_json(md, zmq.SNDMORE)
+                socket.send(params, zmq.SNDMORE)
+                socket.send(dmp)
+                print("sent data")
+            except:
+                print("send exception thread")
+                pass
+
+    p = Plotter("/tmp")
     p.setup_plot()
-    p.data["elbow_delay"] = np.random.uniform(0, 0.6, 100).tolist()
-    p.data["start_pan"] = np.random.uniform(-3.14, 3.14, 100).tolist()
-    p.data["start_lift"] = np.random.uniform(-3.14, 3.14, 100).tolist()
-    p.data["end_lift"] = np.random.uniform(-3.14, 3.14, 100).tolist()
-    p.data["start_elb"] = np.random.uniform(-3.14, 3.14, 100).tolist()
-    p.data["end_elb"] = np.random.uniform(-3.14, 3.14, 100).tolist()
-    p.data["start_wri"] = np.random.uniform(-3.14, 3.14, 100).tolist()
-    p.data["end_wri"] = np.random.uniform(-3.14, 3.14, 100).tolist()
-    p.data["dmps"] = []
-    for i in xrange(100):
-        p.data["dmps"].append(np.random.uniform(0, 50, (3, 100)))
+    p.init_zmq()
+    thread = threading.Thread(target=data_thread)
+    thread.start()
+
+    # p.data["elbow_delay"] = np.random.uniform(0, 0.6, 100).tolist()
+    # p.data["wrist_delay"] = np.random.uniform(0, 0.6, 100).tolist()
+    # p.data["start_pan"] = np.random.uniform(-3.14, 3.14, 100).tolist()
+    # p.data["start_lift"] = np.random.uniform(-3.14, 3.14, 100).tolist()
+    # p.data["end_lift"] = np.random.uniform(-3.14, 3.14, 100).tolist()
+    # p.data["start_elb"] = np.random.uniform(-3.14, 3.14, 100).tolist()
+    # p.data["end_elb"] = np.random.uniform(-3.14, 3.14, 100).tolist()
+    # p.data["start_wri"] = np.random.uniform(-3.14, 3.14, 100).tolist()
+    # p.data["end_wri"] = np.random.uniform(-3.14, 3.14, 100).tolist()
+    # p.data["dmps"] = []
+    # for i in xrange(16):
+    #     p.data["dmps"].append(np.random.uniform(0, 50, (3, 100)))
+    # p.data["fitness"] = np.random.uniform(0, 5000, 100).tolist()
     p.plot_loop()
