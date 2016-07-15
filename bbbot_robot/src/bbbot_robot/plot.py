@@ -130,7 +130,7 @@ class Plotter(object):
     def time_plot(self):
         if not self.plot_changed and not self.data_updated:
             return
-        else:
+        elif self.plot_changed:
             plt.close(self.fig)
             self.create_figure()
             plt.clf()
@@ -160,7 +160,7 @@ class Plotter(object):
     def fitness_plot(self):
         if not self.plot_changed and not self.data_updated:
             return
-        else:
+        elif self.plot_changed:
             plt.close(self.fig)
             self.create_figure()
             plt.clf()
@@ -185,7 +185,7 @@ class Plotter(object):
     def dmp_plot(self):
         if not self.plot_changed and not self.data_updated:
             return
-        else:
+        elif self.plot_changed:
             plt.close(self.fig)
             self.create_figure()
             plt.clf()
@@ -196,8 +196,11 @@ class Plotter(object):
             self.axes[0].set_xlabel("Time")
             self.axes[0].set_ylabel("Joint Angle (radian)")
             self.current_plot = self.button_value
+        elif self.data_updated:
+            for ax in self.axes:
+                ax.cla()
 
-        idx = ["lift_dmp", "elb_dmp", "wri_dmp"].index(self.button_value) + 1
+        idx = ["lift_dmp", "elb_dmp", "wri_dmp"].index(self.button_value)
         data = [arr[idx] for arr in self.data["dmps"]]
 
         self.axes[0] = sns.tsplot(data, ci=[68, 95], ax=self.axes[0])
@@ -220,10 +223,9 @@ class Plotter(object):
     def angles_plot(self, new=False):
         if not new and not self.plot_changed and not self.data_updated:
             return
-        else:
-            plt.close(self.fig)
-            self.axes = []
-            self.current_plot = self.button_value
+        plt.close(self.fig)
+        self.axes = []
+        self.current_plot = self.button_value
 
         data = {key: self.data[key] for key in self.multi_value}
         d_frame = DataFrame(data)
