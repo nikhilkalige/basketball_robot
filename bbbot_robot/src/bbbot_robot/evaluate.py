@@ -460,15 +460,20 @@ class EvaluateHansen(Evaluate):
             self.plot = True
             self.init_zmq(conf.get('zmq', 'port'))
 
-        self.run_count = 0
+        self.countevals = 0
         super(EvaluateHansen, self).__init__(*args, **kwargs)
+
+    def set_evals(self, count):
+        # Use count -1 as cma hansen adds 1 to the count
+        if count:
+            self.countevals = count - 1
 
     def init_zmq(self, port):
         context = zmq.Context()
         self.socket = context.socket(zmq.PAIR)
         self.socket.connect("tcp://127.0.0.1:%s" % port)
 
-    def send_msg(self, iteration, params, fitness):
+    def send_msg(self, params, fitness, mean_run=False):
         """ Params = list, fitness = float """
         dmp = self.get_dmp_points(params)
         params = np.array(params)
@@ -477,9 +482,10 @@ class EvaluateHansen(Evaluate):
             params_dtype=str(params.dtype),
             params_shape=params.shape,
             fitness=fitness,
-            iteration=iteration,
+            evaluations=self.countevals,
             dmp_dtype=str(dmp.dtype),
             dmp_shape=dmp.shape,
+            mean_run=mean_run
         )
         try:
             self.socket.send_json(md, zmq.SNDMORE)
@@ -582,7 +588,7 @@ class EvaluateHansen(Evaluate):
             return False
         return True
 
-    def eval(self, params):
+    def eval(self, params, mean_values=False):
         # return [np.random.random() * 1000]
         scaled_params = self.scale_params(params)
         if not self.check_feasible(params, None):
@@ -598,7 +604,11 @@ class EvaluateHansen(Evaluate):
             # A valid run
             reward = [self.MAX_VALID_REWARD - val]
         rospy.loginfo("Reward: {}".format(reward))
-        self.send_msg(0, scaled_params, reward)
+        self.send_msg(scaled_params, reward, mean_values)
+
+        if not mean_values:
+            self.countevals += 1
+
         return reward
 
 
