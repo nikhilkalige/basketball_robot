@@ -41,6 +41,7 @@ class Plotter(object):
     LINE_COLOR = sns.color_palette("bright")[3]
     TIME_NAMES = ["ELBOW TIME", "WRIST TIME"]
     POP_SIZE = 15
+    FITNESS_COLOR = "#FF3A3A"
 
     def __init__(self, dump_location, pickle_file=""):
         self.dump_location = dump_location
@@ -81,7 +82,8 @@ class Plotter(object):
             start_wri=[],
             end_wri=[],
             dmps=[],
-            fitness=[]
+            fitness=[],
+            mean_fitness=[]
         )
 
     def recv_msg(self):
@@ -98,17 +100,40 @@ class Plotter(object):
             dmps = np.frombuffer(buffer(dmps), dtype=md['dmp_dtype'])
             dmps = np.reshape(dmps, md['dmp_shape'])
 
-            self.data["elbow_delay"].append(params[PIdx.D_ELBOW])
-            self.data["wrist_delay"].append(params[PIdx.D_WRIST])
-            self.data["start_pan"].append(params[PIdx.STR_PAN])
-            self.data["start_lift"].append(params[PIdx.STR_LFT])
-            self.data["end_lift"].append(params[PIdx.END_LFT])
-            self.data["start_elb"].append(params[PIdx.STR_ELB])
-            self.data["end_elb"].append(params[PIdx.END_ELB])
-            self.data["start_wri"].append(params[PIdx.STR_WRI])
-            self.data["end_wri"].append(params[PIdx.END_WRI])
-            self.data["dmps"].append(dmps)
-            self.data["fitness"].append(md["fitness"])
+            evaluations = md['evaluations']
+            if len(self.data['elbow_delay']) > evaluations:
+                print("Current lenght: {} and recieved evaultions: {},clearing data....".format(len(self.data['elbow_delay']),
+                                                                                                evaluations))
+                # Usefull for restarting
+                self.data["elbow_delay"][evaluations:] = []
+                self.data["wrist_delay"][evaluations:] = []
+                self.data["start_pan"][evaluations:] = []
+                self.data["start_lift"][evaluations:] = []
+                self.data["end_lift"][evaluations:] = []
+                self.data["start_elb"][evaluations:] = []
+                self.data["end_elb"][evaluations:] = []
+                self.data["start_wri"][evaluations:] = []
+                self.data["end_wri"][evaluations:] = []
+                self.data["dmps"][evaluations:] = []
+                self.data["fitness"][evaluations:] = []
+
+                pops_finished = (evaluations + 1) / self.POP_SIZE
+                self.data["mean_fitness"][pops_finished:] = []
+
+            if not md['mean_run']:
+                self.data["elbow_delay"].append(params[PIdx.D_ELBOW])
+                self.data["wrist_delay"].append(params[PIdx.D_WRIST])
+                self.data["start_pan"].append(params[PIdx.STR_PAN])
+                self.data["start_lift"].append(params[PIdx.STR_LFT])
+                self.data["end_lift"].append(params[PIdx.END_LFT])
+                self.data["start_elb"].append(params[PIdx.STR_ELB])
+                self.data["end_elb"].append(params[PIdx.END_ELB])
+                self.data["start_wri"].append(params[PIdx.STR_WRI])
+                self.data["end_wri"].append(params[PIdx.END_WRI])
+                self.data["dmps"].append(dmps)
+                self.data["fitness"].append(md["fitness"])
+            else:
+                self.data["mean_fitness"].append(md["fitness"])
 
             with open(os.path.join(self.dump_location, "data.pkl"), 'wb') as f:
                 pickle.dump(self.data, f)
@@ -178,6 +203,11 @@ class Plotter(object):
             self.axes[0].scatter(np.arange(start, start + len(data[idx])), data[idx],
                                  color=self.TIME_COLORS[idx % 2])
             start = start + len(data[idx])
+
+        mean_data = self.data['mean_fitness']
+        if mean_data:
+            x_data = [(i + 1) * self.POP_SIZE for i in xrange(len(mean_data))]
+            self.axes[0].plot(x_data, mean_data, '--o', color=self.FITNESS_COLOR, linewidth=1)
 
         a = self.axes[0]
         a.set_xticks(np.arange(start, step=self.POP_SIZE))
@@ -290,25 +320,33 @@ if __name__ == "__main__":
         socket = context.socket(zmq.PAIR)
         socket.connect("tcp://127.0.0.1:%s" % conf.get('zmq', 'port'))
 
+        idx = 0
         while True:
-            time.sleep(4)
+            time.sleep(2)
             dmp = np.random.uniform(0, 50, (3, 100))
             delay = np.random.uniform(0, 0.6, 2)
             angles = np.random.uniform(-3.14, 3.14, 7)
             params = np.concatenate((delay, angles))
+            if not idx % 15:
+                mean_run = True
+            else:
+                mean_run = False
+
             md = dict(
                 params_dtype=str(params.dtype),
                 params_shape=params.shape,
-                fitness=np.random.uniform(0, 1000, 1)[0],
+                fitness=np.random.uniform(0, 700, 1)[0],
                 iteration=0,
                 dmp_dtype=str(dmp.dtype),
                 dmp_shape=dmp.shape,
+                mean_run=mean_run
             )
+            idx += 1
             try:
                 socket.send_json(md, zmq.SNDMORE)
                 socket.send(params, zmq.SNDMORE)
                 socket.send(dmp)
-                print("sent data")
+                print("sent data", idx, md['fitness'])
             except:
                 print("send exception thread")
                 pass
