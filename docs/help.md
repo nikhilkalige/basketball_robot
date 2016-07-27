@@ -17,3 +17,12 @@ Sat 11 Jun 2016 06:53:56 PM MST
     Ran for 6 generations
     Folder: 11_06_17_16_53
 
+Sat 11 Jun 2016 08:52:17 PM MST
+    Sig - 0.8 Gen - 3
+    Poor results
+    Folder: 11_06_20_05_04
+
+Sun 12 Jun 2016 09:34:53 PM MST
+    Sig - 0.7 Gen - 21
+    Maximum value 264
+    Folder: 12_06_15_19_21
