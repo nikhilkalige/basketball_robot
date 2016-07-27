@@ -9,10 +9,10 @@ import rospy
 def check_feasible(params, fitness):
     if fitness is not None:
         if any([v > 1000 for v in fitness]):
-            rospy.logwarn('Const Check: Failed fitness value {}'.format(fitness))
+            # rospy.logwarn('Const Check: Failed fitness value {}'.format(fitness))
             return False
         else:
-            rospy.logwarn('Const Check: Skip feasibility, good reward')
+            # rospy.logwarn('Const Check: Skip feasibility, good reward')
             return True
     return True
 
@@ -36,7 +36,7 @@ def hans_setup_cmaes(sigma, initial_params, constraint_func=False, checkpoint=Fa
 def hans_run_cmaes(es, eval_function, pkl_location, log_iters=1):
     while not es.stop():
         rospy.loginfo("**********************************************")
-        rospy.loginfo("   ******* Current iteration {} ********".format(es.countiter))
+        rospy.logerr("   ******* Current iteration {} ********".format(es.countiter))
         rospy.loginfo("**********************************************")
         X, fit = es.ask_and_eval(eval_function)
         es.tell(X, fit)  # pass on fitness values
@@ -47,6 +47,7 @@ def hans_run_cmaes(es, eval_function, pkl_location, log_iters=1):
         #         es.logger.plot()
         #     except:
         #         pass
+        eval_function(es.mean, True)
         pickle.dump(es, open(os.path.join(pkl_location, 'cma_{:05d}.pkl'.format(es.countiter)), 'wb'))
         data = dict(population=X, fitness=fit)
         pickle.dump(data, open(os.path.join(pkl_location, 'cma_pop{:05d}.pkl'.format(es.countiter)), 'wb'))
