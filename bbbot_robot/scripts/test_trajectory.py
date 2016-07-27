@@ -4,10 +4,9 @@ import sys
 import numpy as np
 from bbbot_robot.robot import Robot
 from bbbot_robot.robot import JointNames as JN
-
+from bbbot_robot.tracking import Tracker
 
 def main():
-    rospy.init_node("basketball_robot")
     robot = Robot(use_prefix=True)
 
     delay = 0.2
@@ -27,5 +26,18 @@ def main():
     rospy.spin()
 
 
+def tracker():
+    t = Tracker()
+    print("Starting thread")
+    while True:
+        t.start()
+        raw_input('Enter to stop: ')
+        t.stop()
+        print 'Reward', t.get_reward()
+        raw_input('Enter to start: ')
+
+
 if __name__ == '__main__':
-    main()
+    rospy.init_node("basketball_robot")
+    # main()
+    tracker()

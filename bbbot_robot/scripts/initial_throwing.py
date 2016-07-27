@@ -75,7 +75,8 @@ def main():
 
     delay = 0.2
 
-    # robot.control_torque()
+    robot.control_torque()
+    return
     # Move to initial position
     # move_to_point(robot, p4)
 
@@ -124,5 +125,19 @@ def main():
     # move_to_pos(robot, JN.SHOULDER_LIFT, 0.82, 0.82, delay)
 
 
+def main1():
+    rospy.init_node("basketball_robot")
+    robot = Robot(sim=True, collision=False, single_arm=True)
+    robot.create_trajectory('left', JN.SHOULDER_PAN, np.pi * 0.95, 0.06, 0.02)
+    robot.start_trajectory(2)
+    robot.wait_completion()
+
+    #raw_input("asdf")
+    robot.create_trajectory('left', JN.SHOULDER_PAN, -np.pi * 0.95, 0.06, 0.02)
+    robot.start_trajectory(2)
+    robot.wait_completion()
+
+
 if __name__ == '__main__':
-    main()
+    # main()
+    main1()
