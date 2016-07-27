@@ -5,4 +5,4 @@ moveit_setup_assistant_config:
   SRDF:
     relative_path: config/bbbot.srdf
   CONFIG:
-    generated_timestamp: 1465261578
+    generated_timestamp: 1469069257
