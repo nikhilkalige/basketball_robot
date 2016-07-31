@@ -11,6 +11,7 @@ from pandas import DataFrame
 import pickle
 from bbbot_robot.config_reader import conf
 import os
+import itertools
 
 
 class PIdx(IntEnum):
@@ -309,6 +310,31 @@ class Plotter(object):
             plt.pause(0.001)
             time.sleep(delay)
             self.recv_msg()
+
+    def save_plots(self, location):
+        if not os.path.exists(location):
+            return
+
+        for value in ["elbow_delay", "wrist_delay"]:
+            self.button_value = value
+            self.time_plot()
+            self.fig.savefig(os.path.join(location, value + '.svg'), bbox_inches='tight', dpi=1200)
+
+        for value in ["lift_dmp", "elb_dmp", "wri_dmp"]:
+            self.button_value = value
+            self.dmp_plot()
+            self.fig.savefig(os.path.join(location, value + '.svg'), bbox_inches='tight', dpi=1200)
+
+        self.button_value = "angles"
+        for b1, b2 in itertools.combinations(self.MULTI_BUTTONS, 2):
+            self.multi_value = [b1, b2]
+            self.angles_plot(True)
+            filename = '{}__{}.svg'.format(b1, b2)
+            self.fig.savefig(os.path.join(location, filename), bbox_inches='tight', dpi=1200)
+
+        self.button_value = "fitness"
+        self.fitness_plot()
+        self.fig.savefig(os.path.join(location, 'fitness.svg'), bbox_inches='tight', dpi=1200)
 
 
 if __name__ == "__main__":
