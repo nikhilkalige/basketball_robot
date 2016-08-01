@@ -350,6 +350,36 @@ class Robot:
             self.left.add_traj_point(lpt, delay)
             self.right.add_traj_point(rpt, delay)
 
+    def dual_trajectory_learning(self, lpoints, rpoints, delay=0.01, current_angles=[]):
+        arms = [self.left, self.right]
+        curr_angles = []
+
+        for arm in arms:
+            arm.init_trajectory()
+
+        if not current_angles:
+            for arm in arms:
+                curr_angles.append(arm.get_current_joint_angles())
+        else:
+            curr_angles = [row[:] for row in current_angles]
+        # Set the wrist1 and wrist3 joint values
+        lpoints = np.array(lpoints).T
+        rpoints = np.array(rpoints).T
+
+        lpoints[:, JointNames.WRIST_1] = curr_angles[0][JointNames.WRIST_1]
+        rpoints[:, JointNames.WRIST_1] = curr_angles[0][JointNames.WRIST_1]
+
+        left_points = lpoints.copy()
+        right_points = rpoints.copy()
+
+        left_points[:, JointNames.WRIST_3] = curr_angles[0][JointNames.WRIST_3]
+
+        right_points[:, JointNames.WRIST_3] = curr_angles[1][JointNames.WRIST_3]
+
+        for lpt, rpt in zip(left_points, right_points):
+            self.left.add_traj_point(lpt, delay)
+            self.right.add_traj_point(rpt, delay)
+
     def interpolate(self, arm_str, points, delay=0.15, skip_joints=[], current_angles=[]):
         if arm_str == 'left':
             arms = [self.left]

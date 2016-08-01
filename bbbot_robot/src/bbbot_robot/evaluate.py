@@ -345,7 +345,7 @@ class Evaluate(object):
 
         return points
 
-    def move_to_initial_position(self, params):
+    def move_to_initial_position(self, params, left_points=[], right_points=[]):
         if self.gazebo:
             start_delay = 0.1
             interpolate_delay = 0.03
@@ -392,18 +392,24 @@ class Evaluate(object):
             self.arm_state = ArmState.INITIAL
 
         rospy.loginfo("-----------------------DMP Position-----------------------")
-        lpoints = [params[PIdx.STR_PAN], params[PIdx.STR_LFT], params[PIdx.STR_ELB],
-                   0, params[PIdx.STR_WRI], 1.58]
+        if not params:
+            lpoints = left_points
+        else:
+            lpoints = [params[PIdx.STR_PAN], params[PIdx.STR_LFT], params[PIdx.STR_ELB],
+                       0, params[PIdx.STR_WRI], 1.58]
 
         rospy.loginfo('Generated DMP point: ')
         self.robot.print_numpy_array(lpoints)
 
         self.robot.interpolate('left', lpoints, delay=interpolate_delay)
 
-        rpoints = lpoints[:]
-        rpoints[0] *= -1
-        rpoints[5] = 3.14
-        self.robot.interpolate('right', rpoints, delay=interpolate_delay)
+        if not params:
+            rpoints = right_points
+        else:
+            rpoints = lpoints[:]
+            rpoints[0] *= -1
+            rpoints[5] = 3.14
+            self.robot.interpolate('right', rpoints, delay=interpolate_delay)
 
         self.robot.visualize_trajectory(False)
         if not self.handle_input('Running move to initial dmp position: '):
@@ -661,3 +667,102 @@ class EvaluateGazebo(EvaluateHansen):
                 rospy.logwarn("Exception on set model state service {}".format(e))
 
         return True
+
+
+class EvaluateGroups(EvaluateGazebo):
+    def __init__(self, *args, **kwargs):
+        super(EvaluateGroups, self).__init__(*args, **kwargs)
+        params = self.get_initial_params()
+
+        initial_trajectory = []
+        self.left_trajectory, self.right_trajectory = [], []
+        for idx in range(4):
+            initial_trajectory.append(self.generate_traj_points(idx, params))
+        # Insert zeros in position for Wrist 1 and Wrist 3 joints
+        length = len(initial_trajectory[0])
+        initial_trajectory.insert(3, [0] * length)
+        initial_trajectory.append([0] * length)
+        # Convert to a numpy array
+        self.left_trajectory = np.array(self.initial_trajectory)
+        self.right_trajectory = np.array(self.initial_trajectory)
+        self.right_trajectory[0] *= -1
+
+        context = zmq.Context()
+        self.matlab_socket = context.socket(zmq.PAIR)
+        self.matlab_socket.connect("tcp://127.0.0.1:%s" % 5556)
+
+    def eval(self):
+        while True:
+            message = self.matlab_socket.recv()
+            pass
+
+    def run(self, params):
+        # Params here is an an array of [12 * 600]
+        left_angles = self.left_trajectory + params[:6]
+        right_angles = self.right_trajectory + params[6:]
+
+        left_init_pt = left_angles[:, 0]
+        left_init_pt[5] = 1.58
+
+        right_init_pt = right_angles[:, 0]
+        right_init_pt[5] = 3.14
+
+        ###########################################################################
+        # Check collisions
+        ###########################################################################
+        dist = self.robot.get_dist_btw_effectors(left_init_pt, right_init_pt)
+        if not (self.BALL_GRASP_DISTANCE[0] <= dist <= self.BALL_GRASP_DISTANCE[1]):
+            rospy.logwarn('Constraint Failed: Eff distance: {}'.format(dist))
+            return [0]
+
+        # Current angle will be the ball pickup position
+        l_cur_angle = self.PICKUP_POS + [1.58]
+        r_cur_angle = l_cur_angle[:]
+        r_cur_angle[0] *= -1
+        r_cur_angle[5] = 3.14
+
+        self.robot.interpolate('left', left_init_pt, current_angles=l_cur_angle)
+        self.robot.interpolate('right', right_init_pt, current_angles=r_cur_angle)
+
+        collision = self.robot.check_collision()
+        if collision:
+            rospy.logwarn("Constraint Failed: DMP Collision")
+            return [0]
+
+        trajectory = []
+        for idx in range(4):
+            trajectory.append(self.generate_traj_points(idx, params))
+        # Insert zeros in position for Wrist 1 and Wrist 3 joints
+        length = len(trajectory[0])
+        trajectory.insert(3, [0] * length)
+        trajectory.append([0] * length)
+
+        curr_angles = [left_init_pt, right_init_pt]
+        self.robot.trajectory_learning(trajectory, current_angles=curr_angles)
+        collision = self.robot.check_collision()
+        if collision:
+            rospy.logwarn("Constraint Failed: Throw Collision")
+            return [0]
+
+        ###########################################################################
+        # Run Experiment
+        ###########################################################################
+        # Pick the ball
+        # Move to the initial position
+        if not self.move_to_initial_position([], left_init_pt, right_init_pt):
+            return [0]
+
+        # Start the throwing process
+        # get the weights from params with shape (4, dmp_count)
+        self.robot.dual_trajectory_learning(left_angles, right_angles)
+
+        retval = self.visualize()
+        if retval:
+            return [0]
+
+        fitness = self.real_run()
+        self.send_msg(self.get_initial_params(), fitness, False)
+
+        self.countevals += 1
+
+        return fitness
