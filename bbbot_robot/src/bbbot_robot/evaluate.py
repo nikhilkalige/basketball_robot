@@ -98,6 +98,8 @@ class Evaluate(object):
         self.init_dmp(dmp_count, bag_file)
         self.robot.control_torque()
         self.arm_state = ArmState.DMP
+        self.cb_run_before = None
+        self.cb_run_after = None
 
     def get_initial_params(self):
         weights = []
@@ -105,6 +107,10 @@ class Evaluate(object):
             weights += dmp.w[0].tolist()
 
         return self.DEFAULT_PARAMS + weights
+
+    def register_run_callback(self, fn_before=None, fn_after=None):
+        self.cb_run_before = fn_before
+        self.cb_run_after = fn_after
 
     def eval(self, params):
         """Params comes from the cmaes evaluate"""
@@ -241,6 +247,12 @@ class Evaluate(object):
         if not self.gazebo:
             raw_input('Enter to start robot movement: ')
 
+        try:
+            if self.cb_run_before:
+                self.cb_run_before()
+        except Exception:
+            pass
+
         if self.gazebo:
             time.sleep(1)
         self.track.start()
@@ -257,6 +269,12 @@ class Evaluate(object):
 
         self.track.stop()
         reward = self.track.get_reward()
+
+        try:
+            if self.cb_run_after:
+                self.cb_run_after()
+        except Exception:
+            pass
 
         rospy.loginfo("Got reward: {}".format(reward))
 
