@@ -177,7 +177,12 @@ class Plotter(object):
             start = start + len(data[idx])
 
         a = self.axes[0]
-        a.set_xticks(np.arange(start, step=self.POP_SIZE))
+
+        step = self.POP_SIZE
+        while start / step > 20:
+            step += self.POP_SIZE
+        a.set_xticks(np.arange(start, step=step))
+
         self.axes[1].cla()
         self.axes[1] = sns.distplot(
             self.data[self.button_value], ax=self.axes[1], rug=True, bins=10)
@@ -211,7 +216,11 @@ class Plotter(object):
             self.axes[0].plot(x_data, mean_data, '--o', color=self.FITNESS_COLOR, linewidth=1)
 
         a = self.axes[0]
-        a.set_xticks(np.arange(start, step=self.POP_SIZE))
+        step = self.POP_SIZE
+        while start / step > 20:
+            step += self.POP_SIZE
+        a.set_xticks(np.arange(start, step=step))
+        a.set_ylim(a.get_ylim()[0], 610)
 
     def dmp_plot(self):
         if not self.plot_changed and not self.data_updated:
