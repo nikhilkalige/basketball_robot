@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 from bbbot_robot.evaluate import EvaluateGazebo
+from bbbot_robot.config_reader import conf
 from pykeyboard import PyKeyboard
 import sys
 import os
@@ -49,7 +50,6 @@ class robot_thread(QThread):
         self.event = Event()
 
     def run(self):
-        rospy.init_node('bot', log_level=rospy.WARN)
         robot = EvaluateGazebo(DMP, BAG_FILE, plot=False)
         if video:
             robot.register_run_callback(kazam_pause, kazam_pause)
@@ -63,11 +63,13 @@ class robot_thread(QThread):
         with open(data_file, 'r') as f:
             f.readline()  # skip first line
             idx = 1
-            for line in f.readlines():
+            for line in f.readlines()[:30]:
                 print("Evalution: {}/{}".format(idx, num_lines))
-                idx += 1
                 params = [float(x) for x in line.split()[5:]]
-                # robot.eval(params)
+                self.event.data.emit(idx, " ")
+                robot.eval(params)
+                idx += 1
+
         if self.video:
             kazam_stop()
         robot.track.kill()
@@ -83,7 +85,7 @@ class Demo(QtGui.QWidget):
         self.setStyleSheet("QFrame { background-color : rgba(100, 100, 100, 255); color : white; }")
         self.setStyleSheet("QWidget { font-size:18px; background-color : rgba(100, 100, 100, 255); color : white; }")
 
-        x, y, w, h = 500, 200, 220, 50
+        x, y, w, h = 1600, 100, 220, 50
         self.setGeometry(x, y, w, h)
         self.setAttribute(QtCore.Qt.WA_StyledBackground, True)
 
@@ -119,14 +121,17 @@ class Demo(QtGui.QWidget):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print("Enter folder location")
+        print("Enter folder name")
         sys.exit()
 
-    if not os.path.exists(sys.argv[1]):
-        print("Invalid path {}".format(sys.argv[1]))
+    folder_name = sys.argv[1]
+    folder = conf.get('dump', 'cmaes_dump')
+    loc = os.path.join(folder, folder_name)
+
+    if not os.path.exists(loc):
+        print("Invalid path {}".format(loc))
         sys.exit()
 
-    loc = sys.argv[1]
     data_file = os.path.join(loc, 'outcmaesxmean.dat')
     if not os.path.exists(data_file):
         print('outcmaesxmean.dat doesn\'t exist in {}'.format(loc))
@@ -137,7 +142,8 @@ if __name__ == '__main__':
         if '--video' == sys.argv[2]:
             video = True
 
+    rospy.init_node('bot', log_level=rospy.WARN)
     app = QtGui.QApplication(sys.argv)
-    demo = Demo(loc, video)
+    demo = Demo(data_file, video)
     demo.show_and_raise()
     sys.exit(app.exec_())
