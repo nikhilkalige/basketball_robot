@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+from bbbot_robot.config_reader import conf
 import sys
 import os
 import seaborn as sns
@@ -16,11 +17,14 @@ if __name__ == '__main__':
         print("Enter folder location")
         sys.exit()
 
-    if not os.path.exists(sys.argv[1]):
-        print("Invalid path {}".format(sys.argv[1]))
+    folder_name = sys.argv[1]
+    folder = conf.get('dump', 'plotter_dump')
+    loc = os.path.join(folder, folder_name)
+
+    if not os.path.exists(loc):
+        print("Invalid path {}".format(loc))
         sys.exit()
 
-    loc = sys.argv[1]
     data_file = os.path.join(loc, 'data.pkl')
     if not os.path.exists(data_file):
         print('data.pkl doesn\'t exist in {}'.format(loc))
@@ -44,8 +48,19 @@ if __name__ == '__main__':
     blocks[blocks > 600] = 600
     axes = plt.subplot()
 
-    mean = blocks.mean(axis=1)
-    std = blocks.std(axis=1)
+    blocks_list = blocks.tolist()
+    # Remove all 600
+    stripped_data = []
+    for row in blocks_list:
+        stripped_data.append([v for v in row if v < 600])
+
+    mean, std = [], []
+    for row in stripped_data:
+        mean.append(np.mean(row))
+        std.append(np.std(row))
+
+    mean = np.array(mean)
+    std = np.array(std)
 
     colors = sns.color_palette('husl')
     x = np.arange(blocks.shape[0])

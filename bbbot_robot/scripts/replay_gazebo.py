@@ -63,7 +63,7 @@ class robot_thread(QThread):
         with open(data_file, 'r') as f:
             f.readline()  # skip first line
             idx = 1
-            for line in f.readlines()[:30]:
+            for line in f.readlines():
                 print("Evalution: {}/{}".format(idx, num_lines))
                 params = [float(x) for x in line.split()[5:]]
                 self.event.data.emit(idx, " ")
