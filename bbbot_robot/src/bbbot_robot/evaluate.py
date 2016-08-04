@@ -411,7 +411,7 @@ class Evaluate(object):
 
         rospy.loginfo("-----------------------DMP Position-----------------------")
         if not params:
-            lpoints = left_points
+            lpoints = left_points.tolist()
         else:
             lpoints = [params[PIdx.STR_PAN], params[PIdx.STR_LFT], params[PIdx.STR_ELB],
                        0, params[PIdx.STR_WRI], 1.58]
@@ -422,12 +422,14 @@ class Evaluate(object):
         self.robot.interpolate('left', lpoints, delay=interpolate_delay)
 
         if not params:
-            rpoints = right_points
+            rpoints = right_points.tolist()
         else:
             rpoints = lpoints[:]
             rpoints[0] *= -1
             rpoints[5] = 3.14
-            self.robot.interpolate('right', rpoints, delay=interpolate_delay)
+
+        self.robot.interpolate('right', rpoints, delay=interpolate_delay)
+        self.robot.print_numpy_array(rpoints)
 
         self.robot.visualize_trajectory(False)
         if not self.handle_input('Running move to initial dmp position: '):
@@ -527,6 +529,7 @@ class EvaluateHansen(Evaluate):
 
     @classmethod
     def scale_params(cls, params):
+        """Converts to range needed for execution"""
         in_range = [0, 10]
         scaled_params = [0] * len(params)
         scaled_params[0] = cls.scale(params[0], in_range, [0, cls.OVERALL_TIME])
@@ -563,6 +566,7 @@ class EvaluateHansen(Evaluate):
 
     @classmethod
     def rescale_params(cls, params):
+        """Converts towards cmaes range"""
         out_range = [0, 10]
         scaled_params = [0] * len(params)
         scaled_params[0] = cls.scale(params[0], [0, cls.OVERALL_TIME], out_range)
@@ -662,6 +666,7 @@ class EvaluateGazebo(EvaluateHansen):
             return N(intersect_pt[0])
             # print "-x {} -y {} -z {}".format(s[0], s[1], s[2])
         else:
+            rospy.logwarn("Can't spawn ball")
             return None
 
     def spawn_ball(self, left_angles, right_angles):
@@ -690,16 +695,16 @@ class EvaluateGazebo(EvaluateHansen):
 class EvaluateGroups(EvaluateGazebo):
     def __init__(self, *args, **kwargs):
         super(EvaluateGroups, self).__init__(*args, **kwargs)
-        params = self.get_initial_params()
+        params = self.scale_params(self.get_initial_params())
 
-        initial_trajectory = []
+        self.initial_trajectory = []
         self.left_trajectory, self.right_trajectory = [], []
-        for idx in range(4):
-            initial_trajectory.append(self.generate_traj_points(idx, params))
+        self.initial_trajectory = self.get_dmp_points(params)
+
         # Insert zeros in position for Wrist 1 and Wrist 3 joints
-        length = len(initial_trajectory[0])
-        initial_trajectory.insert(3, [0] * length)
-        initial_trajectory.append([0] * length)
+        length = len(self.initial_trajectory[0])
+        self.initial_trajectory.insert(3, [0] * length)
+        self.initial_trajectory.append([0] * length)
         # Convert to a numpy array
         self.left_trajectory = np.array(self.initial_trajectory)
         self.right_trajectory = np.array(self.initial_trajectory)
@@ -707,12 +712,43 @@ class EvaluateGroups(EvaluateGazebo):
 
         context = zmq.Context()
         self.matlab_socket = context.socket(zmq.PAIR)
-        self.matlab_socket.connect("tcp://127.0.0.1:%s" % 5556)
+        self.matlab_socket.bind("tcp://127.0.0.1:%s" % 55455)
+
+    def send_msg(self, params, dmp, fitness, mean_run=False):
+        """ Params = list, fitness = float """
+        params = np.array(params)
+        md = dict(
+            params_dtype=str(params.dtype),
+            params_shape=params.shape,
+            fitness=fitness,
+            evaluations=self.countevals,
+            dmp_dtype=str(dmp.dtype),
+            dmp_shape=dmp.shape,
+            mean_run=mean_run
+        )
+        try:
+            self.socket.send_json(md, zmq.SNDMORE)
+            self.socket.send(params, zmq.SNDMORE)
+            self.socket.send(dmp)
+        except:
+            pass
 
     def eval(self):
         while True:
             message = self.matlab_socket.recv()
-            pass
+            # params is 8 * 60
+            params = np.zeros((8, 60))
+            params = np.array(np.matrix(message.strip('[]')))
+            print("msg recv", params[:1][0])
+            plist = params.tolist()
+            dummy_points = [0] * 60
+            for idx in [3, 5, 9, 11]:
+                plist.insert(idx, dummy_points)
+
+            params = np.array(plist)
+            fitness = self.run(params)
+            self.matlab_socket.send(str(fitness[0]))
+            # sys.exit()
 
     def run(self, params):
         # Params here is an an array of [12 * 600]
@@ -725,10 +761,15 @@ class EvaluateGroups(EvaluateGazebo):
         right_init_pt = right_angles[:, 0]
         right_init_pt[5] = 3.14
 
+        # Compute original params list that matches the type of CMAES evaluation, helps
+        # in sending the message
+        orig_params = [0, 0, left_angles[0][0], left_angles[1][0], left_angles[1][-1],
+                       left_angles[2][0], left_angles[2][-1],
+                       left_angles[3][0], left_angles[3][-1]] + [0] * 45
         ###########################################################################
         # Check collisions
         ###########################################################################
-        dist = self.robot.get_dist_btw_effectors(left_init_pt, right_init_pt)
+        dist = self.robot.get_dist_btw_effectors(left_init_pt.tolist(), right_init_pt.tolist())
         if not (self.BALL_GRASP_DISTANCE[0] <= dist <= self.BALL_GRASP_DISTANCE[1]):
             rospy.logwarn('Constraint Failed: Eff distance: {}'.format(dist))
             return [0]
@@ -745,22 +786,23 @@ class EvaluateGroups(EvaluateGazebo):
         collision = self.robot.check_collision()
         if collision:
             rospy.logwarn("Constraint Failed: DMP Collision")
-            return [0]
+            return [1000]
 
-        trajectory = []
-        for idx in range(4):
-            trajectory.append(self.generate_traj_points(idx, params))
-        # Insert zeros in position for Wrist 1 and Wrist 3 joints
-        length = len(trajectory[0])
-        trajectory.insert(3, [0] * length)
-        trajectory.append([0] * length)
+        # trajectory = []
+        # for idx in range(4):
+        #     trajectory.append(self.generate_traj_points(idx, params))
+        # # Insert zeros in position for Wrist 1 and Wrist 3 joints
+        # length = len(trajectory[0])
+        # trajectory.insert(3, [0] * length)
+        # trajectory.append([0] * length)
 
-        curr_angles = [left_init_pt, right_init_pt]
-        self.robot.trajectory_learning(trajectory, current_angles=curr_angles)
+        # curr_angles = [left_init_pt, right_init_pt]
+        # self.robot.trajectory_learning(trajectory, current_angles=curr_angles)
+        self.robot.dual_trajectory_learning(left_angles, right_angles)
         collision = self.robot.check_collision()
         if collision:
             rospy.logwarn("Constraint Failed: Throw Collision")
-            return [0]
+            return [1000]
 
         ###########################################################################
         # Run Experiment
@@ -768,7 +810,7 @@ class EvaluateGroups(EvaluateGazebo):
         # Pick the ball
         # Move to the initial position
         if not self.move_to_initial_position([], left_init_pt, right_init_pt):
-            return [0]
+            return [1000]
 
         # Start the throwing process
         # get the weights from params with shape (4, dmp_count)
@@ -776,11 +818,64 @@ class EvaluateGroups(EvaluateGazebo):
 
         retval = self.visualize()
         if retval:
-            return [0]
+            return [1000]
 
         fitness = self.real_run()
-        self.send_msg(self.get_initial_params(), fitness, False)
+
+        val = fitness[0]
+        if val <= 0:
+            # Means a invalid function evaluation
+            reward = [1000]
+        else:
+            # A valid run
+            temp = 800 - val
+            if temp < 0:
+                temp = 0
+            reward = [temp]
+        print(fitness, reward)
+        self.send_msg(orig_params, left_angles[:3], reward, False)
 
         self.countevals += 1
 
-        return fitness
+        return reward
+
+    @staticmethod
+    def midpoint(pose1, pose2):
+        x = (pose1.pose.position.x + pose2.pose.position.x) / 2
+        y = (pose1.pose.position.y + pose2.pose.position.y) / 2
+        z = (pose1.pose.position.z + pose2.pose.position.z) / 2
+
+        return (x, y, z)
+
+    def get_spawn_position(self, left_angles, right_angles):
+        # links = ['leftarm_wrist_3_link', 'leftarm_finger_link', 'rightarm_wrist_3_link', 'rightarm_finger_link']
+        links = ['leftarm_finger_link', 'rightarm_finger_link']
+        resp = self.robot.get_fk_service(left_angles, right_angles, links)
+        if resp < 0:
+            print("Error", resp)
+            return -1
+
+        point = self.midpoint(resp.pose_stamped[0], resp.pose_stamped[1])
+        return point
+
+    def spawn_ball(self, left_angles, right_angles):
+        pos = self.get_spawn_position(left_angles, right_angles)
+        if not pos:
+            return False
+
+        msg = SetModelStateRequest()
+        msg.model_state.model_name = "basketball"
+        msg.model_state.pose.position.x = pos[0]
+        msg.model_state.pose.position.y = pos[1]
+        msg.model_state.pose.position.z = pos[2]
+
+        while True:
+            try:
+                model_service = rospy.ServiceProxy("/gazebo/set_model_state", SetModelState)
+                resp = model_service(msg)
+                if resp.success:
+                    break
+            except rospy.ServiceException as e:
+                rospy.logwarn("Exception on set model state service {}".format(e))
+
+        return True

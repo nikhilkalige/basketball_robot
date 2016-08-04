@@ -220,7 +220,8 @@ class Plotter(object):
         while start / step > 20:
             step += self.POP_SIZE
         a.set_xticks(np.arange(start, step=step))
-        a.set_ylim(a.get_ylim()[0], 610)
+        # a.set_ylim(a.get_ylim()[0], 610)
+        a.set_ylim(a.get_ylim()[0], 800)
 
     def dmp_plot(self):
         if not self.plot_changed and not self.data_updated:
