@@ -2,7 +2,7 @@
 <launch>
 
   <!-- choose whether or not to use simulation -->
-  <arg name="use_sim" default="true"/>
+  <arg name="use_sim" default="false"/>
   <!-- Choose whether velocity or position trajectory controller is used -->
   <arg name="position_controller" default="true" />
   <!-- Choose whether to start end effector velocity node -->
