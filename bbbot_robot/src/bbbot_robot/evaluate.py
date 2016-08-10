@@ -5,7 +5,7 @@ import numpy as np
 import rospy
 import sys
 from bbbot_robot.robot import JointNames as JN
-#from bbbot_robot.tracking import Tracker
+from bbbot_robot.tracking import Tracker
 from bbbot_robot.ball_tracker import BallTracker
 import time
 import rosbag
@@ -15,6 +15,8 @@ import zmq
 from sympy import Point3D, Line3D, N
 from gazebo_msgs.srv import SetModelStateRequest, SetModelState
 
+
+MATLAB_PORT = 55459
 
 '''
 Parameters:
@@ -93,7 +95,7 @@ class Evaluate(object):
             self.track = BallTracker()
         else:
             self.robot = Robot(use_prefix=True, display=True)
-            self.track = Tracker()
+            self.track = Tracker(use_kinect=True)
 
         self.init_dmp(dmp_count, bag_file)
         self.robot.control_torque()
@@ -231,10 +233,9 @@ class Evaluate(object):
     def visualize(self):
         if self.gazebo:
             return tuple()
-        raw_input('Enter to start rviz visualization: ')
+        self.handle_input('Enter to start rviz visualization: ')
         self.robot.visualize_trajectory(False)
-        ans = raw_input('Was the gazebo movement valid: ')
-        if 'n' in ans:
+        if not self.handle_input('Was the gazebo movement valid: '):
             return tuple([r * 0.6 for r in self.INVALID_GAZEBO_REWARD])
         else:
             return tuple()
@@ -245,7 +246,7 @@ class Evaluate(object):
             return self.COLLISION_REWARD
 
         if not self.gazebo:
-            raw_input('Enter to start robot movement: ')
+            self.handle_input('Enter to start robot movement: ')
 
         try:
             if self.cb_run_before:
@@ -712,7 +713,7 @@ class EvaluateGroups(EvaluateGazebo):
 
         context = zmq.Context()
         self.matlab_socket = context.socket(zmq.PAIR)
-        self.matlab_socket.bind("tcp://127.0.0.1:%s" % 55455)
+        self.matlab_socket.bind("tcp://127.0.0.1:%s" % MATLAB_PORT)
 
     def send_msg(self, params, dmp, fitness, mean_run=False):
         """ Params = list, fitness = float """
@@ -828,7 +829,7 @@ class EvaluateGroups(EvaluateGazebo):
             reward = [1000]
         else:
             # A valid run
-            temp = 800 - val
+            temp = 600 - val
             if temp < 0:
                 temp = 0
             reward = [temp]
