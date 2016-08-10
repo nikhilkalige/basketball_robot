@@ -10,7 +10,7 @@ import rospy
 
 
 cmaes_dump = "/home/nikhilkalige/workspace/asu/thesis/cmaes_dump"
-NGEN = 1000
+NGEN = 70
 SIGMA = 1
 DMP = 15
 BAG_FILE = '/home/nikhilkalige/workspace/ros/devel_packages/bag_files/2016-05-15-15-20-40.bag'

@@ -6,7 +6,12 @@ from bbbot_robot.config_reader import conf
 
 if __name__ == '__main__':
     location = generate_name(conf.get('dump', 'plotter_dump'))
+
+    # pfile = "/home/nikhilkalige/workspace/asu/thesis/plotter_dump/" + "09_08_12_30_58" + '/data.pkl'
+    # p = Plotter(location, pickle_file=pfile)
+
     p = Plotter(location)
+
     p.setup_plot()
     p.init_zmq()
     p.plot_loop()
