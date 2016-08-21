@@ -6,7 +6,7 @@ import rospy
 import sys
 from bbbot_robot.robot import JointNames as JN
 from bbbot_robot.tracking import Tracker
-from bbbot_robot.ball_tracker import BallTracker
+from bbbot_robot.ball_tracker import BallTracker, BasketTracker
 import time
 import rosbag
 from pydmps.dmp_discrete import DMPs_discrete
@@ -88,11 +88,15 @@ class Evaluate(object):
 
     PICKUP_POS = [2.9390760359372385, 1.217528331414226, -0.17592668464016736, 0, 1.2410842115944702]
 
-    def __init__(self, dmp_count, bag_file, gazebo=False, **kwargs):
+    def __init__(self, dmp_count, bag_file, gazebo=False, basket=False, **kwargs):
         self.gazebo = gazebo
+        self.basket = basket
         if self.gazebo:
             self.robot = Robot(use_prefix=True, display=False, sim=True, collision=True)
-            self.track = BallTracker()
+            if self.basket:
+                self.track = BasketTracker()
+            else:
+                self.track = BallTracker()
         else:
             self.robot = Robot(use_prefix=True, display=True)
             self.track = Tracker(use_kinect=True)
@@ -691,6 +695,32 @@ class EvaluateGazebo(EvaluateHansen):
                 rospy.logwarn("Exception on set model state service {}".format(e))
 
         return True
+
+    def eval(self, params, mean_values=False):
+        # return [np.random.random() * 1000]
+        scaled_params = self.scale_params(params)
+        if not self.check_feasible(params, None):
+            return [10000]
+
+        fitness = super(EvaluateHansen, self).eval(scaled_params)
+        # Hansen only minimizes, so convert all negative values to positive values
+        val = fitness[0]
+        if val < 0:
+            # Means a invalid function evaluation
+            reward = [-val]
+        else:
+            # A valid run
+            if self.basket:
+                reward = [val]
+            else:
+                reward = [self.MAX_VALID_REWARD - val]
+        rospy.logwarn("Reward: {}".format(reward))
+        self.send_msg(scaled_params, reward, mean_values)
+
+        if not mean_values:
+            self.countevals += 1
+
+        return reward
 
 
 class EvaluateGroups(EvaluateGazebo):
