@@ -17,6 +17,11 @@
       <pose frame=''>0.165 0 0.4 0 0 0</pose>
     </include> -->
     <include>
+      <uri>model://models/hoop</uri>
+      <static>1</static>
+      <pose frame=''>2.5 0 1.24 0 0 0</pose>
+    </include>
+    <include>
       <uri>model://models/ball</uri>
       <pose frame=''>0.165 0 0.94 0 0 0</pose>
     </include>
