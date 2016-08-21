@@ -1,3 +1,4 @@
+from __future__ import print_function
 '''
 import numpy as np
 import imutils
@@ -112,21 +113,26 @@ try:
     from pylibfreenect2 import LoggerLevel
 
 except:
-    print "Error importing pylibfreenect"
-
+    print("Error importing pylibfreenect")
+import time
 
 class Tracker:
+    X_POSITION = -0.11387496
+    Z_POSITION = 1.3
+
     greenLower = (29, 86, 6)
     greenUpper = (64, 255, 255)
 
     greenLower = (27, 100, 50)
     greenUpper = (60, 255, 255)
 
-    def __init__(self, use_kinect=False):
+    def __init__(self, use_kinect=False, basket=False, gui=True):
         self.connected = False
         self.max_radius = 100000
         self.running = False
         self.killed = False
+        self.gui = gui
+        self.basket = basket
         self.use_kinect = use_kinect
         # self.fig, self.ax = plt.subplots()
 
@@ -239,16 +245,16 @@ class Tracker:
                                    (0, 255, 255), 2)
                         cv2.circle(color_image_array, center, 5, (0, 0, 255), -1)
                         x, y, z = self.registration.getPointXYZ(self.undistorted, y, x)
+                        # print(x, y, z, end='\r')
                         if not math.isnan(y) and not math.isnan(z):
                             self.px.append(y)
                             self.py.append(z)
-                        else:
-                            print "found ana"
                         row = tuple(c[c[:, :, 1].argmin()][0])[1]
                         self.max_radius = min(self.max_radius, row)
 
-                cv2.imshow("Frame", color_image_array)
-                cv2.imshow("Masked", mask)
+                if self.gui:
+                    cv2.imshow("Frame", color_image_array)
+                    cv2.imshow("Masked", mask)
                 self.listener.release(frames)
                 cv2.waitKey(1) & 0xFF
                 # self.ax.plot(self.px)
@@ -256,7 +262,7 @@ class Tracker:
                 # plt.pause(0.01)
 
         cv2.destroyAllWindows()
-        print "exit looping"
+        print("exit looping")
 
     def start(self):
         self.max_radius = 100000
@@ -276,35 +282,44 @@ class Tracker:
 
     def get_reward(self):
         if self.use_kinect:
-            # print self.px
-            try:
-                peaks = peakutils.indexes(self.px)
-            except Exception as e:
-                print e
-                peaks = np.array([])
+            if not self.basket:
+                try:
+                    peaks = peakutils.indexes(self.px)
+                except Exception as e:
+                    print(e)
+                    peaks = np.array([])
 
-            if peaks.any():
-                # for xx in peaks:
-                #     t.ax.plot(xx, self.px[xx], 'ro')
-                return self.py[peaks[0]]
+                if peaks.any():
+                    # for xx in peaks:
+                    #     t.ax.plot(xx, self.px[xx], 'ro')
+                    return self.py[peaks[0]] * 100
+                else:
+                    return 0
             else:
-                return 0
+                dist = distance(np.array([self.px, self.py]).T, self.X_POSITION, self.Z_POSITION)
+                return dist * 100
         else:
             return self.max_radius
 
 
+def distance(array, x, z):
+    abs_point = np.array([x, z])
+    dist = np.linalg.norm(array - abs_point, axis=1)
+    return dist.min()
+
+
 if __name__ == '__main__':
-    t = Tracker(use_kinect=True)
+    t = Tracker(use_kinect=True, basket=True)
     print("Starting thread")
     while True:
         t.start()
         raw_input('Enter to stop: ')
         t.stop()
-        t.ax.cla()
-        t.ax.plot(t.px)
-        t.ax.plot(t.py)
+        #V t.ax.cla()
+        # t.ax.plot(t.px)
+        # t.ax.plot(t.py)
         x = t.get_reward()
-        print "reward", x
+        print("reward", x)
         plt.pause(0.01)
         # print 'Reward', t.get_reward()
         raw_input('Enter to start: ')
