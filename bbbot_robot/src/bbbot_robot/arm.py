@@ -125,8 +125,8 @@ class Arm:
         else:
             self.logdebug(
                 "Trajectory failed to execute with status: {}".format(goal_status))
-            if not self.sim:
-                sys.exit(1)
+            #if not self.sim:
+            #    sys.exit(1)
         self.logdebug(result)
         self.trajectory_active = False
 
