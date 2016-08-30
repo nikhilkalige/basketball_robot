@@ -117,8 +117,11 @@ except:
 import time
 
 class Tracker:
-    X_POSITION = -0.11387496
-    Z_POSITION = 1.3
+    # X_POSITION = -0.11387496
+    # Z_POSITION = 1.3
+    X_POSITION = -0.185
+    Z_POSITION = 1.5
+
 
     greenLower = (29, 86, 6)
     greenUpper = (64, 255, 255)
@@ -296,7 +299,9 @@ class Tracker:
                 else:
                     return 0
             else:
+                print(np.mean(self.px), np.mean(self.py))
                 dist = distance(np.array([self.px, self.py]).T, self.X_POSITION, self.Z_POSITION)
+                print("distance", dist, len(self.px))
                 return dist * 100
         else:
             return self.max_radius

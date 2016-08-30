@@ -99,7 +99,7 @@ class Evaluate(object):
                 self.track = BallTracker()
         else:
             self.robot = Robot(use_prefix=True, display=True)
-            self.track = Tracker(use_kinect=True)
+            self.track = Tracker(use_kinect=True, basket=self.basket)
 
         self.init_dmp(dmp_count, bag_file)
         self.robot.control_torque()
@@ -374,7 +374,7 @@ class Evaluate(object):
             interpolate_delay = 0.03
         else:
             start_delay = 1
-            interpolate_delay = 0.15
+            interpolate_delay = 0.09
 
         if self.arm_state == ArmState.DMP:
             rospy.loginfo("-----------------------Initial Position-----------------------")
@@ -635,7 +635,10 @@ class EvaluateHansen(Evaluate):
             reward = [-val]
         else:
             # A valid run
-            reward = [self.MAX_VALID_REWARD - val]
+            if self.basket:
+                reward = [val]
+            else:
+                reward = [self.MAX_VALID_REWARD - val]
         rospy.loginfo("Reward: {}".format(reward))
         self.send_msg(scaled_params, reward, mean_values)
 
