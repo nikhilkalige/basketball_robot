@@ -1,9 +1,19 @@
-from bbbot_robot.evaluate import EvaluateHansen
+from __future__ import print_function
+from bbbot_robot.evaluate import EvaluateHansen, EvaluateGazebo
 import numpy as np
 import rospy
 from enum import IntEnum
 import zmq
-
+import rosbag
+from bbbot_robot.robot import Robot
+from bbbot_robot.config_reader import conf
+import sys
+from bbbot_robot.robot import JointNames as JN
+from bbbot_robot.tracking import Tracker
+from bbbot_robot.ball_tracker import BallTracker, BasketTracker
+from pydmps.dmp_discrete import DMPs_discrete
+from sympy import Point3D, Line3D, N
+from gazebo_msgs.srv import SetModelStateRequest, SetModelState
 
 '''
 Parameters:
@@ -47,27 +57,54 @@ class PIdx(IntEnum):
 
 
 class EvaluateDual(EvaluateHansen):
+    DEFAULT_L_PARAMS = [1.697875, 1.697875, 0.2946925, 0.9123826, 1.660619, 0.3703937, 0.5213307, -0.529045]
+    DEFAULT_R_PARAMS = [-1.697875, -1.697875, 0.2946925, 0.9123826, 1.660619, 0.3703937, 0.5213307, -0.529045]
+
     def __init__(self, *args, **kwargs):
         super(EvaluateDual, self).__init__(*args, **kwargs)
-        params = self.scale_params(self.get_initial_params())
 
-        self.initial_trajectory = []
-        self.left_trajectory, self.right_trajectory = [], []
-        self.initial_trajectory = self.get_dmp_points(params)
+    def init_dmp(self, dmp_count, bag_file):
+        with rosbag.Bag(bag_file, 'r') as bag:
+            position = []
+            for _, msg, t in bag.read_messages():
+                position.append(np.array(msg.position))
 
-        # Insert zeros in position for Wrist 1 and Wrist 3 joints
-        length = len(self.initial_trajectory[0])
-        self.initial_trajectory.insert(3, [0] * length)
-        self.initial_trajectory.append([0] * length)
-        # Convert to a numpy array
-        self.left_trajectory = np.array(self.initial_trajectory)
-        self.right_trajectory = np.array(self.initial_trajectory)
-        self.right_trajectory[0] *= -1
+        position = np.array(position).T
 
-        context = zmq.Context()
-        self.matlab_socket = context.socket(zmq.PAIR)
+        # We need only three joints
+        arm_index = np.array([1, 2, 4])
+        position = position[arm_index, :]
 
-        self.matlab_socket.bind("tcp://127.0.0.1:%s" % MATLAB_PORT)
+        length, valid_points = [], []
+        valid_points.append(np.array([self.DEFAULT_L_PARAMS[0]] * 60))
+        length.append(60)
+
+        points_idx = [self.LIFT_POINTS, self.ELBOW_POINTS, self.WRIST_POINTS]
+        for idx, arr in zip(points_idx, position):
+            valid_points.append(arr[idx[0]:idx[1]])
+            length.append(idx[1] - idx[0])
+
+        valid_points.append(np.array([self.DEFAULT_R_PARAMS[0]] * 60))
+        length.append(60)
+
+        for i in [1, 2, 3]:
+            valid_points.append(valid_points[i])
+            length.append(length[i])
+
+        self.dmps = []
+        for l, joint in zip(length, valid_points):
+            dmp = DMPs_discrete(dmps=1, bfs=dmp_count, dt=1.0 / l)
+            dmp.imitate_path(joint)
+            self.dmps.append(dmp)
+
+    def get_initial_params(self):
+        weights = []
+        for dmp in self.dmps:
+            weights += dmp.w[0].tolist()
+
+        w_len = len(weights)
+        params =  self.DEFAULT_L_PARAMS + weights[0:w_len/2] + self.DEFAULT_R_PARAMS + weights[w_len/2:]
+        return self.rescale_params(params)
 
     @classmethod
     def scale_params(cls, params):
@@ -84,8 +121,9 @@ class EvaluateDual(EvaluateHansen):
         scaled_params[6] = cls.scale(params[6], in_range, cls.WRIST_RESTRICT)
         scaled_params[7] = cls.scale(params[7], in_range, cls.WRIST_RESTRICT)
 
-        scaled_params[68] = cls.scale(params[68], in_range, -cls.PAN_RESTRICT)
-        scaled_params[69] = cls.scale(params[69], in_range, -cls.PAN_RESTRICT)
+        neg_pan_restrict = [-1 * x for x in cls.PAN_RESTRICT]
+        scaled_params[68] = cls.scale(params[68], in_range, neg_pan_restrict)
+        scaled_params[69] = cls.scale(params[69], in_range, neg_pan_restrict)
         scaled_params[70] = cls.scale(params[70], in_range, cls.LIFT_RESTRICT)
         scaled_params[71] = cls.scale(params[71], in_range, cls.LIFT_RESTRICT)
         scaled_params[72] = cls.scale(params[72], in_range, cls.ELBOW_RESTRICT)
@@ -116,8 +154,9 @@ class EvaluateDual(EvaluateHansen):
         scaled_params[6] = cls.scale(params[6], cls.WRIST_RESTRICT, out_range)
         scaled_params[7] = cls.scale(params[7], cls.WRIST_RESTRICT, out_range)
 
-        scaled_params[68] = cls.scale(params[68], cls.PAN_RESTRICT, out_range)
-        scaled_params[69] = cls.scale(params[69], cls.PAN_RESTRICT, out_range)
+        neg_pan_restrict = [-1 * x for x in cls.PAN_RESTRICT]
+        scaled_params[68] = cls.scale(params[68], neg_pan_restrict, out_range)
+        scaled_params[69] = cls.scale(params[69], neg_pan_restrict, out_range)
         scaled_params[70] = cls.scale(params[70], cls.LIFT_RESTRICT, out_range)
         scaled_params[71] = cls.scale(params[71], cls.LIFT_RESTRICT, out_range)
         scaled_params[72] = cls.scale(params[72], cls.ELBOW_RESTRICT, out_range)
@@ -154,7 +193,7 @@ class EvaluateDual(EvaluateHansen):
             return (False, self.JOINT_ERROR_REWARD)
         return (True, tuple())
 
-    def generate_traj_points(self, joint_idx, params, leftarm=true):
+    def generate_traj_points(self, joint_idx, params, leftarm=True):
         no_points = int(self.OVERALL_TIME / self.TIMESTEP)
         # Pan joint
         if joint_idx == 0:
@@ -227,6 +266,8 @@ class EvaluateDual(EvaluateHansen):
         r_cur_angle = l_cur_angle[:]
         r_cur_angle[0] *= -1
         r_cur_angle[5] = 3.14
+
+        print(lpoints, rpoints)
 
         self.robot.interpolate('left', lpoints, current_angles=l_cur_angle)
         self.robot.interpolate('right', rpoints, current_angles=r_cur_angle)
@@ -307,7 +348,7 @@ class EvaluateDual(EvaluateHansen):
                        scaled_params[PIdx.L_STR_ELB], 0, scaled_params[PIdx.L_STR_WRI], 1.58]
         r_str_point = [scaled_params[PIdx.R_STR_PAN], scaled_params[PIdx.R_STR_LFT],
                        scaled_params[PIdx.R_STR_ELB], 0, scaled_params[PIdx.R_STR_WRI], 3.14]
-        if not self.move_to_initial_position([], l_str_point, r_str_point):
+        if not self.move_to_initial_position([], np.array(l_str_point), np.array(r_str_point)):
             return tuple([r * 0.8 for r in self.COLLISION_REWARD])
 
         # Start the throwing process
@@ -341,7 +382,7 @@ class EvaluateDual(EvaluateHansen):
 
         # Compute original params list that matches the type of CMAES evaluation, helps
         # in sending the message
-        orig_params = [0, 0] + np.random.uniform(0, 3.14, 7) + [0] * 45
+        orig_params = [0, 0] + np.random.uniform(0, 3.14, 7).tolist() + [0] * 45
         self.send_msg(orig_params, np.random.uniform(0, 3.14, (3, 60)), reward, mean_values)
 
         if not mean_values:
@@ -367,3 +408,55 @@ class EvaluateDual(EvaluateHansen):
             self.socket.send(dmp)
         except:
             pass
+
+
+class EvaluateDualGazebo(EvaluateDual):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("gazebo", True)
+        super(EvaluateDualGazebo, self).__init__(*args, **kwargs)
+
+    @staticmethod
+    def pose_to_line(pose1, pose2):
+        p1 = Point3D(pose1.pose.position.x, pose1.pose.position.y, pose1.pose.position.z)
+        p2 = Point3D(pose2.pose.position.x, pose2.pose.position.y, pose2.pose.position.z)
+
+        return Line3D(p1, p2)
+
+    def get_spawn_position(self, left_angles, right_angles):
+        links = ['leftarm_wrist_3_link', 'leftarm_finger_link', 'rightarm_wrist_3_link', 'rightarm_finger_link']
+        resp = self.robot.get_fk_service(left_angles, right_angles, links)
+        if resp < 0:
+            print("Error", resp)
+            return -1
+
+        l1 = self.pose_to_line(resp.pose_stamped[0], resp.pose_stamped[1])
+        l2 = self.pose_to_line(resp.pose_stamped[2], resp.pose_stamped[3])
+        intersect_pt = l1.intersection(l2)
+        if intersect_pt:
+            return N(intersect_pt[0])
+            # print "-x {} -y {} -z {}".format(s[0], s[1], s[2])
+        else:
+            rospy.logwarn("Can't spawn ball")
+            return None
+
+    def spawn_ball(self, left_angles, right_angles):
+        pos = self.get_spawn_position(left_angles, right_angles)
+        if not pos:
+            return False
+
+        msg = SetModelStateRequest()
+        msg.model_state.model_name = "basketball"
+        msg.model_state.pose.position.x = pos[0]
+        msg.model_state.pose.position.y = pos[1]
+        msg.model_state.pose.position.z = pos[2]
+
+        while True:
+            try:
+                model_service = rospy.ServiceProxy("/gazebo/set_model_state", SetModelState)
+                resp = model_service(msg)
+                if resp.success:
+                    break
+            except rospy.ServiceException as e:
+                rospy.logwarn("Exception on set model state service {}".format(e))
+
+        return True
