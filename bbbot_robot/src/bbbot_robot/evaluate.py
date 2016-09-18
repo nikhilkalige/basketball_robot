@@ -16,7 +16,7 @@ from sympy import Point3D, Line3D, N
 from gazebo_msgs.srv import SetModelStateRequest, SetModelState
 
 
-MATLAB_PORT = 55459
+MATLAB_PORT = 55455
 
 '''
 Parameters:
@@ -226,11 +226,13 @@ class Evaluate(object):
         return True
 
     def validate_joint_limits(self, angles, limits):
-        if not (limits[0] <= angles[0] <= limits[1]):
+        lower = min(limits)
+        upper = max(limits)
+        if not (lower <= angles[0] <= upper):
             return False
 
         if len(angles) == 2:
-            if not (limits[0] <= angles[1] <= limits[1]):
+            if not (lower <= angles[1] <= upper):
                 return False
         return True
 
@@ -857,15 +859,18 @@ class EvaluateGroups(EvaluateGazebo):
         fitness = self.real_run()
 
         val = fitness[0]
-        if val <= 0:
+        if val < 0:
             # Means a invalid function evaluation
             reward = [1000]
         else:
-            # A valid run
-            temp = 600 - val
-            if temp < 0:
-                temp = 0
-            reward = [temp]
+            if self.basket:
+                reward = [val]
+            else:
+                # A valid run
+                temp = 600 - val
+                if temp < 0:
+                    temp = 0
+                reward = [temp]
         print(fitness, reward)
         self.send_msg(orig_params, left_angles[:3], reward, False)
 
