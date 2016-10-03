@@ -75,7 +75,7 @@ def main():
 
     delay = 0.2
 
-    robot.control_torque()
+    robot.control_torque(True)
     return
     # Move to initial position
     # move_to_point(robot, p4)

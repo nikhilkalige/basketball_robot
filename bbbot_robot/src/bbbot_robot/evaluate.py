@@ -16,7 +16,7 @@ from sympy import Point3D, Line3D, N
 from gazebo_msgs.srv import SetModelStateRequest, SetModelState
 
 
-MATLAB_PORT = 55455
+MATLAB_PORT = 55409
 
 '''
 Parameters:
@@ -87,6 +87,8 @@ class Evaluate(object):
     BALL_GRASP_DISTANCE = [0.41, 0.56]
 
     PICKUP_POS = [2.9390760359372385, 1.217528331414226, -0.17592668464016736, 0, 1.2410842115944702]
+    # PICKUP_POS_2 = [2.8755932053807536, 0.8484991696820084, 0.4793698575564854, 0, 0.9381345793548389]
+    PICKUP_POS_2 = [2.8755932053807536, 0.88, 0.4793698575564854, 0, 0.9381345793548389]
 
     def __init__(self, dmp_count, bag_file, gazebo=False, basket=False, **kwargs):
         self.gazebo = gazebo
@@ -264,7 +266,7 @@ class Evaluate(object):
             time.sleep(1)
         self.track.start()
         start_delay = 0.1 if self.gazebo else 2
-
+        # start_delay = 0.1
         self.robot.start_trajectory(start_delay)
         self.robot.wait_completion()
 
@@ -375,8 +377,8 @@ class Evaluate(object):
             start_delay = 0.1
             interpolate_delay = 0.03
         else:
-            start_delay = 1
-            interpolate_delay = 0.09
+            start_delay = 0.1
+            interpolate_delay = 0.045
 
         if self.arm_state == ArmState.DMP:
             rospy.loginfo("-----------------------Initial Position-----------------------")
@@ -410,6 +412,19 @@ class Evaluate(object):
 
             self.robot.interpolate('left', lpoints, delay=interpolate_delay)
             self.robot.interpolate('right', rpoints, delay=interpolate_delay)
+
+            self.robot.start_trajectory(delay=start_delay)
+            self.robot.wait_completion()
+
+            lpoints = self.PICKUP_POS_2 + [1.58]
+            self.robot.interpolate('left', lpoints, delay=interpolate_delay)
+
+            rpoints = lpoints[:]
+            rpoints[0] *= -1
+            rpoints[5] = 3.14
+            self.robot.interpolate('right', rpoints, delay=interpolate_delay)
+
+            self.robot.visualize_trajectory(False)
 
             self.robot.start_trajectory(delay=start_delay)
             self.robot.wait_completion()
@@ -448,7 +463,8 @@ class Evaluate(object):
 
         self.robot.start_trajectory(delay=start_delay)
         self.robot.wait_completion()
-        self.arm_state = ArmState.DMP
+        # self.arm_state = ArmState.DMP
+        self.arm_state = ArmState.INITIAL
 
         if self.gazebo:
             if not self.spawn_ball(lpoints, rpoints):
@@ -744,11 +760,13 @@ class EvaluateGroups(EvaluateGazebo):
         # Convert to a numpy array
         self.left_trajectory = np.array(self.initial_trajectory)
         self.right_trajectory = np.array(self.initial_trajectory)
-        self.right_trajectory[0] *= -1
+        #self.right_trajectory[0] *= -1
 
         context = zmq.Context()
         self.matlab_socket = context.socket(zmq.PAIR)
         self.matlab_socket.bind("tcp://127.0.0.1:%s" % MATLAB_PORT)
+
+        self.dunk_count = 0
 
     def send_msg(self, params, dmp, fitness, mean_run=False):
         """ Params = list, fitness = float """
@@ -769,27 +787,60 @@ class EvaluateGroups(EvaluateGazebo):
         except:
             pass
 
+    def send_msg2(self, params, reward):
+        """ Params = list, fitness = float """
+        md = dict(
+            params_dtype=str(params.dtype),
+            params_shape=params.shape,
+            fitness=reward
+        )
+        try:
+            self.socket.send_json(md, zmq.SNDMORE)
+            self.socket.send(params)
+        except Exception as e:
+            print(e)
+
     def eval(self):
         while True:
             message = self.matlab_socket.recv()
             # params is 8 * 60
             params = np.zeros((8, 60))
             params = np.array(np.matrix(message.strip('[]')))
-            print("msg recv", params[:1][0])
+            #print (params)
+            #print("msg recv", params[:1][0])
             plist = params.tolist()
             dummy_points = [0] * 60
             for idx in [3, 5, 9, 11]:
                 plist.insert(idx, dummy_points)
-
             params = np.array(plist)
             fitness = self.run(params)
             self.matlab_socket.send(str(fitness[0]))
             # sys.exit()
 
-    def run(self, params):
+    def run(self, params, replay=False):
         # Params here is an an array of [12 * 600]
-        left_angles = self.left_trajectory + params[:6]
-        right_angles = self.right_trajectory + params[6:]
+        # j1max = np.min(params, axis=1)[0]
+        # j2max = np.min(params, axis=1)[6]
+        if not replay:
+            left_angles = self.left_trajectory + params[:6]
+            # left_angles[0] = self.left_trajectory[0]  # + 10 * j1max
+
+            right_angles = self.right_trajectory + params[6:]
+            # right_angles[0] = self.left_trajectory[0].copy()  #+ 10 * j1max
+            right_angles[0] = left_angles[0].copy()  #+ 10 * j1max
+
+        else:
+            left_angles = np.array([params[0], params[1], params[2], self.left_trajectory[3], params[3], self.left_trajectory[5]])
+            right_angles = np.array([params[0], params[4], params[5], self.right_trajectory[3], params[6], self.right_trajectory[5]])
+
+        right_angles[0] *= -1
+        msg_data = np.array([left_angles[0], left_angles[1], left_angles[2], left_angles[4],
+                             right_angles[1], right_angles[2], right_angles[4]])
+
+        # validate shoulder lift angle
+        if left_angles[0][0] < 0.75 or left_angles[0][0] > 3:
+            self.send_msg2(msg_data, 1000)
+            return [1000]
 
         left_init_pt = left_angles[:, 0]
         left_init_pt[5] = 1.58
@@ -808,7 +859,8 @@ class EvaluateGroups(EvaluateGazebo):
         dist = self.robot.get_dist_btw_effectors(left_init_pt.tolist(), right_init_pt.tolist())
         if not (self.BALL_GRASP_DISTANCE[0] <= dist <= self.BALL_GRASP_DISTANCE[1]):
             rospy.logwarn('Constraint Failed: Eff distance: {}'.format(dist))
-            return [0]
+            self.send_msg2(msg_data, 1000)
+            return [1000]
 
         # Current angle will be the ball pickup position
         l_cur_angle = self.PICKUP_POS + [1.58]
@@ -822,6 +874,7 @@ class EvaluateGroups(EvaluateGazebo):
         collision = self.robot.check_collision()
         if collision:
             rospy.logwarn("Constraint Failed: DMP Collision")
+            self.send_msg2(msg_data, 1000)
             return [1000]
 
         # trajectory = []
@@ -838,6 +891,7 @@ class EvaluateGroups(EvaluateGazebo):
         collision = self.robot.check_collision()
         if collision:
             rospy.logwarn("Constraint Failed: Throw Collision")
+            self.send_msg2(msg_data, 1000)
             return [1000]
 
         ###########################################################################
@@ -846,6 +900,7 @@ class EvaluateGroups(EvaluateGazebo):
         # Pick the ball
         # Move to the initial position
         if not self.move_to_initial_position([], left_init_pt, right_init_pt):
+            self.send_msg2(msg_data, 1000)
             return [1000]
 
         # Start the throwing process
@@ -854,6 +909,7 @@ class EvaluateGroups(EvaluateGazebo):
 
         retval = self.visualize()
         if retval:
+            self.send_msg2(msg_data, 1000)
             return [1000]
 
         fitness = self.real_run()
@@ -865,14 +921,19 @@ class EvaluateGroups(EvaluateGazebo):
         else:
             if self.basket:
                 reward = [val]
+                if val == 0:
+                    self.dunk_count += 1
+                if self.dunk_count:
+                    print('***** Dunked {} times ******'.format(self.dunk_count))
             else:
                 # A valid run
                 temp = 600 - val
                 if temp < 0:
                     temp = 0
                 reward = [temp]
-        print(fitness, reward)
-        self.send_msg(orig_params, left_angles[:3], reward, False)
+
+        # self.send_msg(orig_params, left_angles[:3], reward, False)
+        self.send_msg2(msg_data, reward[0])
 
         self.countevals += 1
 

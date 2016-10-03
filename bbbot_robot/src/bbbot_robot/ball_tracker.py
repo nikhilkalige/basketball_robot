@@ -61,6 +61,7 @@ class BallTracker:
 class BasketTracker(BallTracker):
     X_POSITION = 2.5
     Z_POSITION = 1.6
+    Y_POSITION = 0.0
     Z_HOOP_HEIGHT = 1.2
 
     def model_cb(self, data):
@@ -72,7 +73,7 @@ class BasketTracker(BallTracker):
             return
         pos = data.pose[idx]
         # print(pos.position.x, pos.position.z)
-        self.position.append([pos.position.x, pos.position.z])
+        self.position.append([pos.position.x, pos.position.y, pos.position.z])
 
     def start(self):
         self.position = []
@@ -85,25 +86,26 @@ class BasketTracker(BallTracker):
         positions = np.array(self.position)
 
         # Check if there is a dunk
-        if positions[:, 1].min() >= 1.2:
+        if (positions[:, 2].min() >= 1.2) and (positions[:, 0].max() >= 1.5):
             print("Robot has dunked the ball")
             return 0
 
         # See if ball already on the ground
-        if positions[0][1] < 0.65:
+        if positions[0][2] < 0.65:
             return 800
 
-        dist = distance(positions, self.X_POSITION, self.Z_POSITION)
+        # dist = distance(positions, self.X_POSITION, self.Z_POSITION)
+        dist = distanceY(positions, self.X_POSITION, self.Y_POSITION, self.Z_POSITION)
         # The ball on the ground usually returns a value of 1.47, so any ball that falls
         # very close to the robot and then rolls over gets the same reward, therefore we
         # use find the point where the ball hits the ground and then calculate the distance
         # from there.
         if dist > 1.46:
-            z = positions[:, 1]
+            z = positions[:, 2]
             zd = np.diff(z)
             stop_idx = zd.argmin()
-            xm, zm = positions[stop_idx]
-            sdist = np.linalg.norm(positions[stop_idx] - np.array([self.X_POSITION, self.Z_POSITION]))
+            xm, ym, zm = positions[stop_idx]
+            sdist = np.linalg.norm(positions[stop_idx] - np.array([self.X_POSITION, self.Y_POSITION, self.Z_POSITION]))
             dist = max(dist, sdist)
 
         print(dist * 100)
@@ -112,6 +114,12 @@ class BasketTracker(BallTracker):
 
 def distance(array, x, z):
     abs_point = np.array([x, z])
+    dist = np.linalg.norm(array - abs_point, axis=1)
+    return dist.min()
+
+
+def distanceY(array, x, y, z):
+    abs_point = np.array([x, y, z])
     dist = np.linalg.norm(array - abs_point, axis=1)
     return dist.min()
 

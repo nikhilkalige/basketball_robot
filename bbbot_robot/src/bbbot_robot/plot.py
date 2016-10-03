@@ -358,7 +358,7 @@ if __name__ == "__main__":
 
         idx = 0
         while True:
-            time.sleep(2)
+            # time.sleep(2)
             dmp = np.random.uniform(0, 50, (3, 100))
             delay = np.random.uniform(0, 0.6, 2)
             angles = np.random.uniform(-3.14, 3.14, 7)

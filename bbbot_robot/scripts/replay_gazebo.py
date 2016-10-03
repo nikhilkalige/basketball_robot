@@ -50,7 +50,7 @@ class robot_thread(QThread):
         self.event = Event()
 
     def run(self):
-        robot = EvaluateGazebo(DMP, BAG_FILE, plot=False)
+        robot = EvaluateGazebo(DMP, BAG_FILE, plot=False, basket=True)
         if video:
             robot.register_run_callback(kazam_pause, kazam_pause)
 
